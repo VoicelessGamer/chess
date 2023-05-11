@@ -1,5 +1,4 @@
 use crate::pieces::piece::Piece;
-use crate::Board;
 
 #[derive(Clone)]
 pub struct Knight {
@@ -17,7 +16,7 @@ impl Piece for Knight {
     return String::from("N");
   }
 
-  fn get_moves(&self, board: Board) -> Vec<(u8, u8)> {
+  fn get_moves(&self) -> Vec<(u8, u8)> {
     todo!()
   }
 }

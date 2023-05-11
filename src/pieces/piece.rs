@@ -1,6 +1,4 @@
-use crate::Board;
-
-pub trait Piece {
+pub trait Piece: Clone + 'static {
   fn abbreviation(&self) -> String;
-  fn get_moves(&self, board:Board) -> Vec<(u8, u8)>;
+  fn get_moves(&self) -> Vec<(u8, u8)>;
 }

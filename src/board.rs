@@ -1,23 +1,29 @@
 use crate::pieces::piece::Piece;
+use crate::pieces::*;
+use crate::config::*;
 
-pub struct Board<'a> {
-  board: Vec<Vec<Option<&'a dyn Piece>>>
+pub struct Board {
+  board: Vec<Vec<Option<Box<dyn Piece>>>>
 }
 
-impl<'a> Board<'a>{
+impl Board {
   /**
    * Initialises a board with the given dimensions. Each position is initialised to Option.None
    */
-  pub fn new(rows: usize, columns: usize) -> Self {
-    let board = vec![vec![None; columns]; rows];
-    Self { board }
-  }
+  pub fn new(config: &BoardConfig) -> Self {
+    let board = vec![vec![None; config.columns]; config.rows];
 
-  /**
-   * Function call to place a given piece at a given position
-   */
-  pub fn assign_piece(&mut self, piece: &'a dyn Piece, x: usize, y: usize) {
-    self.board[x][y] = Some(piece);
+    /*for piece_config in &config.pieces {
+      board[piece_config.x][piece_config.y] = match piece_config.piece.as_str() {
+        "bishop" => Some(Box::new(bishop::Bishop::new(piece_config.white)).as_ref()),
+        "king" => Some(Box::new(king::King::new(piece_config.white)).as_ref()),
+        "knight" => Some(Box::new(knight::Knight::new(piece_config.white)).as_ref()),
+        "pawn" => Some(Box::new(pawn::Pawn::new(piece_config.white)).as_ref()),
+        "queen" => Some(Box::new(queen::Queen::new(piece_config.white)).as_ref()),
+        "rook" => Some(Box::new(rook::Rook::new(piece_config.white)).as_ref())
+      }
+    }*/
+    Self { board }
   }
 
   /**

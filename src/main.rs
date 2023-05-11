@@ -4,11 +4,11 @@ mod config;
 mod pieces;
 
 use crate::game::Game;
-use crate::board::Board;
 use crate::config::*;
 
 fn main() {
   println!("Welcome to Chess!");
+  println!("");
 
   let mut game = Game::new(test_default_config());
 
@@ -21,39 +21,39 @@ fn main() {
 fn test_default_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
-      PieceConfig {piece: String::from("pawn"), white: true, x: 0, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 1, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 2, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 3, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 4, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 5, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 6, y: 1},
-      PieceConfig {piece: String::from("pawn"), white: true, x: 7, y: 1},
-      PieceConfig {piece: String::from("rook"), white: true, x: 0, y: 0},
-      PieceConfig {piece: String::from("knight"), white: true, x: 1, y: 0},
-      PieceConfig {piece: String::from("bishop"), white: true, x: 2, y: 0},
-      PieceConfig {piece: String::from("queen"), white: true, x: 3, y: 0},
-      PieceConfig {piece: String::from("king"), white: true, x: 4, y: 0},
-      PieceConfig {piece: String::from("bishop"), white: true, x: 5, y: 0},
-      PieceConfig {piece: String::from("knight"), white: true, x: 6, y: 0},
-      PieceConfig {piece: String::from("rook"), white: true, x: 7, y: 0},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 1, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 3, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 4, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 5, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 6, row: 1},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 7, row: 1},
+      PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
+      PieceConfig {piece: String::from("knight"), white: true, column: 1, row: 0},
+      PieceConfig {piece: String::from("bishop"), white: true, column: 2, row: 0},
+      PieceConfig {piece: String::from("queen"), white: true, column: 3, row: 0},
+      PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+      PieceConfig {piece: String::from("bishop"), white: true, column: 5, row: 0},
+      PieceConfig {piece: String::from("knight"), white: true, column: 6, row: 0},
+      PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 0},
 
-      PieceConfig {piece: String::from("pawn"), white: false, x: 0, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 1, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 2, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 3, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 4, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 5, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 6, y: 6},
-      PieceConfig {piece: String::from("pawn"), white: false, x: 7, y: 6},
-      PieceConfig {piece: String::from("rook"), white: false, x: 0, y: 7},
-      PieceConfig {piece: String::from("knight"), white: false, x: 1, y: 7},
-      PieceConfig {piece: String::from("bishop"), white: false, x: 2, y: 7},
-      PieceConfig {piece: String::from("queen"), white: false, x: 3, y: 7},
-      PieceConfig {piece: String::from("king"), white: false, x: 4, y: 7},
-      PieceConfig {piece: String::from("bishop"), white: false, x: 5, y: 7},
-      PieceConfig {piece: String::from("knight"), white: false, x: 6, y: 7},
-      PieceConfig {piece: String::from("rook"), white: false, x: 7, y: 7},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 0, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 2, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 3, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 4, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 5, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 6, row: 6},
+      PieceConfig {piece: String::from("pawn"), white: false, column: 7, row: 6},
+      PieceConfig {piece: String::from("rook"), white: false, column: 0, row: 7},
+      PieceConfig {piece: String::from("knight"), white: false, column: 1, row: 7},
+      PieceConfig {piece: String::from("bishop"), white: false, column: 2, row: 7},
+      PieceConfig {piece: String::from("queen"), white: false, column: 3, row: 7},
+      PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7},
+      PieceConfig {piece: String::from("bishop"), white: false, column: 5, row: 7},
+      PieceConfig {piece: String::from("knight"), white: false, column: 6, row: 7},
+      PieceConfig {piece: String::from("rook"), white: false, column: 7, row: 7},
     ],
     rows: 8,
     columns: 8

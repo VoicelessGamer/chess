@@ -1,8 +1,8 @@
 pub struct PieceConfig {
   pub piece: String,
   pub white: bool,
-  pub x: usize,
-  pub y: usize
+  pub row: usize,
+  pub column: usize
 }
 
 pub struct BoardConfig {

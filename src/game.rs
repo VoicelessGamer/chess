@@ -29,9 +29,11 @@ impl Game {
   pub fn play_move(&mut self) {    
     self.board.print_board();
 
-    //self.board.move_piece(3, 2, 4, 2);
-
+    println!("");
     println!("#########################");
+    println!("");
+
+    self.board.move_piece(1, 2, 3, 2);
     self.board.print_board();
   }
 }

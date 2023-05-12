@@ -23,17 +23,6 @@ impl Piece for ChessPiece {
     }
   }
 
-  fn abbreviation(&self) -> String {
-    match self {
-        ChessPiece::Bishop(bishop) => bishop.abbreviation(),
-        ChessPiece::King(king) => king.abbreviation(),
-        ChessPiece::Knight(knight) => knight.abbreviation(),
-        ChessPiece::Pawn(pawn) => pawn.abbreviation(),
-        ChessPiece::Queen(queen) => queen.abbreviation(),
-        ChessPiece::Rook(rook) => rook.abbreviation(),
-    }
-  }
-
   fn get_moves(&self) -> Vec<(usize, usize)> {
     match self {
         ChessPiece::Bishop(bishop) => bishop.get_moves(),

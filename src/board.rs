@@ -32,25 +32,18 @@ impl Board {
   /**
    * Function call to place a given piece at a given position
    */
-  pub fn move_piece(&mut self, x: usize, y: usize, new_x: usize, new_y: usize) {
+  pub fn move_piece(&mut self, x: usize, y: usize, new_x: usize, new_y: usize) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
     let chess_piece = self.board[x][y].take();
     self.board[x][y] = None;
     self.board[new_x][new_y] = chess_piece;
+
+    return self.get_current_board();
   }
 
   /**
-   * Temporarily placed function here until a console interface is in place.
+   * Returns a reference to the current state of the board pieces
    */
-  pub fn print_board(&self) {
-    for row in self.board.iter().rev() {
-      for col in row.iter() {
-        if col.is_some() {
-          print!("{} ", col.as_ref().unwrap().abbreviation());
-        } else {
-          print!("- ");
-        }        
-      }
-      println!();
-    }
+  pub fn get_current_board(&mut self) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
+    return &self.board;
   }
 }

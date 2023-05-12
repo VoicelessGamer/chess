@@ -1,8 +1,10 @@
+mod console_controller;
 mod game;
 mod board;
 mod config;
 mod pieces;
 
+use crate::console_controller::ConsoleController;
 use crate::game::Game;
 use crate::config::*;
 
@@ -12,7 +14,9 @@ fn main() {
 
   let mut game = Game::new(test_default_config());
 
-  game.play_move();
+  let mut console_controller = ConsoleController::new(game);
+
+  console_controller.run();
 }
 
 /**

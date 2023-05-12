@@ -4,11 +4,11 @@ use crate::pieces::piece::Piece;
 pub struct Queen {
   row: usize,
   column: usize,
-  white: bool
+  pub white: bool
 }
 
 impl Queen {
-  pub fn new(row: usize, column: usize,white: bool) -> Queen {
+  pub fn new(row: usize, column: usize, white: bool) -> Queen {
     Queen { row, column, white }
   }
 }
@@ -16,10 +16,6 @@ impl Queen {
 impl Piece for Queen {
   fn get_position(&self) -> (usize, usize) {
     (self.row, self.column)
-  }
-  
-  fn abbreviation(&self) -> String {
-    return String::from("Q");
   }
 
   fn get_moves(&self) -> Vec<(usize, usize)> {

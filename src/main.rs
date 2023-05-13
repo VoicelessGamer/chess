@@ -1,10 +1,15 @@
 mod console_controller;
+mod player;
+mod human_player;
+mod computer_player;
 mod game;
 mod board;
 mod config;
 mod pieces;
+mod position;
 
 use crate::console_controller::ConsoleController;
+use crate::human_player::HumanPlayer;
 use crate::game::Game;
 use crate::config::*;
 
@@ -12,9 +17,12 @@ fn main() {
   println!("Welcome to Chess!");
   println!("");
 
-  let mut game = Game::new(test_default_config());
-
-  let mut console_controller = ConsoleController::new(game);
+  let mut console_controller = ConsoleController::new(
+    Game::new(test_default_config()),
+    Box::new(HumanPlayer {white: true}),
+    //Box::new(ComputerPlayer {white: false, difficulty: 1})
+    Box::new(HumanPlayer {white: true})
+  );
 
   console_controller.run();
 }

@@ -1,27 +1,41 @@
-use crate::board::Board;
-use crate::config::*;
-use crate::pieces::chess_piece::ChessPiece;
-use crate::position::Position;
+use crate::{
+  board::Board,
+  config::*,
+  pieces::chess_piece::ChessPiece,
+  position::Position,
+  player::Player
+};
 
-pub struct Game {
+pub enum State {
+  ACTIVE,
+  BLACK_WIN,
+  WHITE_WIN,
+  STALEMATE
+}
+
+pub struct Game<WP: Player, BP: Player> {
   board: Board,
+  white_player: Box<WP>,
+  black_player: Box<BP>,
   white_castle: bool, // Whether white can still castle
   black_castle: bool, // Whether black can still castle
   white_turn: bool, // true if it is currently white's turn
-  incomplete: bool // true while the game is still active (checkmate has NOT occurred)
+  state: State // true while the game is still active (checkmate has NOT occurred)
 }
 
-impl Game {
+impl<WP: Player, BP: Player> Game<WP, BP> {
   /**
    * Initialises a board with the given dimensions. Each position is initialised to Option.None
    */
-  pub fn new(game_config: GameConfig) -> Self {
+  pub fn new(game_config: GameConfig, white_player: Box<WP>, black_player: Box<BP>) -> Self {
     Self { 
       board: Board::new(&game_config.initial_board),
+      white_player,
+      black_player,
       white_castle: game_config.white_castle,
       black_castle: game_config.black_castle,
       white_turn: game_config.white_turn,
-      incomplete: true
+      state: State::ACTIVE
     }
   }
 
@@ -29,17 +43,33 @@ impl Game {
     return self.white_turn;
   }
 
-  pub fn is_incomplete(&self) -> bool {
-    return self.incomplete;
+  pub fn get_state(&self) -> &State {
+    return &self.state;
   }
 
-  pub fn get_current_board(&mut self) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
-    return self.board.get_current_board();
+  pub fn run(&mut self) {
+    self.update_players();
+    
+    while let State::ACTIVE = self.state {
+      let player_move;
+      if self.is_white_turn() {
+        player_move = self.white_player.get_move();
+      } else {
+        player_move = self.black_player.get_move();
+      }
+
+      // TODO: Validate move here
+
+      self.board.move_piece(player_move.0, player_move.1);
+
+      self.update_players();
+    }
   }
 
-  pub fn play_move(&mut self, current_position: Position, new_position: Position) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
-    // TODO: this is just temporary
-    self.incomplete = false;
-    return self.board.move_piece(current_position, new_position);
+  pub fn update_players(&mut self) {
+    let current_board = self.board.get_current_board();
+
+    self.white_player.update_state(current_board);
+    self.black_player.update_state(current_board);
   }
 }

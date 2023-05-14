@@ -1,7 +1,7 @@
 use crate::pieces::chess_piece::ChessPiece;
-use crate::pieces::piece::Piece;
 use crate::pieces::*;
 use crate::config::*;
+use crate::position::Position;
 
 pub struct Board {
   board: Vec<Vec<Option<Box<ChessPiece>>>>
@@ -32,25 +32,18 @@ impl Board {
   /**
    * Function call to place a given piece at a given position
    */
-  pub fn move_piece(&mut self, x: usize, y: usize, new_x: usize, new_y: usize) {
-    let chess_piece = self.board[x][y].take();
-    self.board[x][y] = None;
-    self.board[new_x][new_y] = chess_piece;
+  pub fn move_piece(&mut self, current_position: Position, new_position: Position) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
+    let chess_piece = self.board[current_position.row][current_position.column].take();
+    self.board[current_position.row][current_position.column] = None;
+    self.board[new_position.row][new_position.column] = chess_piece;
+
+    return self.get_current_board();
   }
 
   /**
-   * Temporarily placed function here until a console interface is in place.
+   * Returns a reference to the current state of the board pieces
    */
-  pub fn print_board(&self) {
-    for row in self.board.iter().rev() {
-      for col in row.iter() {
-        if col.is_some() {
-          print!("{} ", col.as_ref().unwrap().abbreviation());
-        } else {
-          print!("- ");
-        }        
-      }
-      println!();
-    }
+  pub fn get_current_board(&mut self) -> &Vec<Vec<Option<Box<ChessPiece>>>> {
+    return &self.board;
   }
 }

@@ -1,8 +1,15 @@
+//mod console_controller;
+mod player;
+mod terminal_player;
+mod computer_player;
 mod game;
 mod board;
 mod config;
 mod pieces;
+mod position;
 
+use crate::terminal_player::TerminalPlayer;
+use crate::computer_player::ComputerPlayer;
 use crate::game::Game;
 use crate::config::*;
 
@@ -10,9 +17,13 @@ fn main() {
   println!("Welcome to Chess!");
   println!("");
 
-  let mut game = Game::new(test_default_config());
+  let mut game = Game::new(
+    test_default_config(),
+    Box::new(TerminalPlayer { white: true }),
+    Box::new(ComputerPlayer { white: false, difficulty: 1 })
+  );
 
-  game.play_move();
+  game.run();
 }
 
 /**

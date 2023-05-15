@@ -1,15 +1,15 @@
-//mod console_controller;
-mod player;
-mod terminal_player;
-mod computer_player;
+mod controller;
+mod io_controller;
+mod view;
+mod io_view;
 mod game;
 mod board;
 mod config;
 mod pieces;
 mod position;
 
-use crate::terminal_player::TerminalPlayer;
-use crate::computer_player::ComputerPlayer;
+use crate::io_controller::IOController;
+use crate::io_view::IOView;
 use crate::game::Game;
 use crate::config::*;
 
@@ -18,9 +18,9 @@ fn main() {
   println!("");
 
   let mut game = Game::new(
-    test_default_config(),
-    Box::new(TerminalPlayer { white: true }),
-    Box::new(ComputerPlayer { white: false, difficulty: 1 })
+    IOController::new(true, true),
+    IOView {use_unicode: true},
+    test_default_config()
   );
 
   game.run();

@@ -1,9 +1,10 @@
 use crate::{
+  controller::Controller,
+  view::View,
   board::Board,
   config::*,
   pieces::chess_piece::ChessPiece,
-  position::Position,
-  player::Player
+  position::Position
 };
 
 pub enum State {
@@ -13,25 +14,25 @@ pub enum State {
   STALEMATE
 }
 
-pub struct Game<WP: Player, BP: Player> {
+pub struct Game<C: Controller, V: View> {
+  controller: C,
+  view: V,
   board: Board,
-  white_player: Box<WP>,
-  black_player: Box<BP>,
   white_castle: bool, // Whether white can still castle
   black_castle: bool, // Whether black can still castle
   white_turn: bool, // true if it is currently white's turn
   state: State // true while the game is still active (checkmate has NOT occurred)
 }
 
-impl<WP: Player, BP: Player> Game<WP, BP> {
+impl<C: Controller, V: View> Game<C, V> {
   /**
    * Initialises a board with the given dimensions. Each position is initialised to Option.None
    */
-  pub fn new(game_config: GameConfig, white_player: Box<WP>, black_player: Box<BP>) -> Self {
-    Self { 
+  pub fn new(controller: C, view: V, game_config: GameConfig) -> Self {
+    Self {
+      controller,
+      view,
       board: Board::new(&game_config.initial_board),
-      white_player,
-      black_player,
       white_castle: game_config.white_castle,
       black_castle: game_config.black_castle,
       white_turn: game_config.white_turn,
@@ -53,9 +54,9 @@ impl<WP: Player, BP: Player> Game<WP, BP> {
     while let State::ACTIVE = self.state {
       let player_move;
       if self.is_white_turn() {
-        player_move = self.white_player.get_move();
+        player_move = self.controller.get_white_move();
       } else {
-        player_move = self.black_player.get_move();
+        player_move = self.controller.get_black_move();
       }
 
       // TODO: Validate move here
@@ -69,7 +70,6 @@ impl<WP: Player, BP: Player> Game<WP, BP> {
   pub fn update_players(&mut self) {
     let current_board = self.board.get_current_board();
 
-    self.white_player.update_state(current_board);
-    self.black_player.update_state(current_board);
+    self.view.update_state(current_board);
   }
 }

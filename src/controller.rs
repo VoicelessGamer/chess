@@ -1,6 +1,5 @@
-use crate::{position::Position};
+use crate::{player_move::PlayerMove};
 
 pub trait Controller {
-  fn get_white_move(&self) -> (Position, Position);
-  fn get_black_move(&self) -> (Position, Position);
+  fn get_move(&self, white_turn: bool) -> PlayerMove;
 }

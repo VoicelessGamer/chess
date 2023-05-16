@@ -1,24 +1,25 @@
-use crate::pieces::piece::Piece;
+use crate::{
+  pieces::piece::Piece, 
+  position::Position
+};
 
 #[derive(Clone)]
 pub struct Rook {
-  row: usize,
-  column: usize,
-  pub white: bool
+  white: bool
 }
 
 impl Rook {
-  pub fn new(row: usize, column: usize, white: bool) -> Rook {
-    Rook { row, column, white }
+  pub fn new(white: bool) -> Rook {
+    Rook { white }
   }
 }
 
 impl Piece for Rook {
-  fn get_position(&self) -> (usize, usize) {
-    (self.row, self.column)
+  fn is_white(&self) -> bool {
+    self.white
   }
 
-  fn get_moves(&self) -> Vec<(usize, usize)> {
+  fn get_moves(&self) -> Vec<Position> {
     todo!()
   }
 }

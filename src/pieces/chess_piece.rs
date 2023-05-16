@@ -1,5 +1,9 @@
-use crate::pieces::piece::Piece;
-use crate::pieces::*;
+use crate::{
+  pieces::piece::Piece,
+  pieces::*,
+  position::Position
+};
+
 
 #[derive(Clone)]
 pub enum ChessPiece {
@@ -12,18 +16,18 @@ pub enum ChessPiece {
 }
 
 impl Piece for ChessPiece {
-  fn get_position(&self) -> (usize, usize) {
+  fn is_white(&self) -> bool {
     match self {
-        ChessPiece::Bishop(bishop) => bishop.get_position(),
-        ChessPiece::King(king) => king.get_position(),
-        ChessPiece::Knight(knight) => knight.get_position(),
-        ChessPiece::Pawn(pawn) => pawn.get_position(),
-        ChessPiece::Queen(queen) => queen.get_position(),
-        ChessPiece::Rook(rook) => rook.get_position(),
+        ChessPiece::Bishop(bishop) => bishop.is_white(),
+        ChessPiece::King(king) => king.is_white(),
+        ChessPiece::Knight(knight) => knight.is_white(),
+        ChessPiece::Pawn(pawn) => pawn.is_white(),
+        ChessPiece::Queen(queen) => queen.is_white(),
+        ChessPiece::Rook(rook) => rook.is_white(),
     }
   }
 
-  fn get_moves(&self) -> Vec<(usize, usize)> {
+  fn get_moves(&self) -> Vec<Position> {
     match self {
         ChessPiece::Bishop(bishop) => bishop.get_moves(),
         ChessPiece::King(king) => king.get_moves(),

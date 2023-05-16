@@ -1,24 +1,26 @@
-use crate::pieces::piece::Piece;
+use crate::{
+  pieces::piece::Piece, 
+  position::Position
+};
+
 
 #[derive(Clone)]
 pub struct King {
-  row: usize,
-  column: usize,
-  pub white: bool
+  white: bool
 }
 
 impl King {
-  pub fn new(row: usize, column: usize, white: bool) -> King {
-    King { row, column, white }
+  pub fn new(white: bool) -> King {
+    King { white }
   }
 }
 
 impl Piece for King {
-  fn get_position(&self) -> (usize, usize) {
-    (self.row, self.column)
+  fn is_white(&self) -> bool {
+    self.white
   }
 
-  fn get_moves(&self) -> Vec<(usize, usize)> {
+  fn get_moves(&self) -> Vec<Position> {
     todo!()
   }
 }

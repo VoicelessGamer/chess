@@ -2,7 +2,8 @@ use std::io;
 
 use crate::{
   controller::Controller,
-  position::Position
+  position::Position, 
+  player_move::PlayerMove
 };
 
 pub struct IOController {
@@ -18,26 +19,49 @@ impl IOController {
       black_human
     }
   }
+
+  /**
+   * Retrieves the next move for white 
+   */
+  fn get_white_move(&self) -> PlayerMove {
+    if self.white_human {
+      return get_move_input();
+    } else {
+      return get_move_input(); // TODO: Change later for ai implementation
+    }
+  }
+
+  /**
+   * Retrieves the next move for black 
+   */
+  fn get_black_move(&self) -> PlayerMove {
+    if self.black_human {
+      return get_move_input();
+    } else {
+      return get_move_input(); // TODO: Change later for ai implementation
+    }
+  }
 }
 
 impl Controller for IOController {
-  fn get_white_move(&self) -> (Position, Position) {
-    if(self.white_human) {
-      return get_move();
+  /**
+   * Retrieves the next chosen move from the white or black player based on
+   * the provided white_turn bool parameter
+   */
+  fn get_move(&self, white_turn: bool) -> PlayerMove {
+    if white_turn {
+      return self.get_white_move();
     } else {
-      return get_move(); // TODO: Change later for ai implementation
-    }
-  }
-  fn get_black_move(&self) -> (Position, Position) {
-    if(self.black_human) {
-      return get_move();
-    } else {
-      return get_move(); // TODO: Change later for ai implementation
+      return self.get_black_move();
     }
   }
 }
 
-fn get_move() -> (Position, Position) {
+/**
+ * A function to retrieve the input of the next move from the terminal input.
+ * Loops on the input string until it is valid
+ */
+fn get_move_input() -> PlayerMove {
   loop {
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
@@ -48,16 +72,16 @@ fn get_move() -> (Position, Position) {
 
     let split: Vec<&str> = input.split(",").collect();
     if split.len() == 4 {
-      return (
-        Position {
+      return PlayerMove {
+        current: Position {
           row: split[0].parse::<usize>().unwrap(), 
           column: split[1].parse::<usize>().unwrap()
         }, 
-        Position {
+        target: Position {
           row: split[2].parse::<usize>().unwrap(), 
           column: split[3].parse::<usize>().unwrap()
         }
-      )
+      }
     }
     println!("Invalid Input");
   }

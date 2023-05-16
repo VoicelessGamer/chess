@@ -6,6 +6,7 @@ mod game;
 mod board;
 mod config;
 mod pieces;
+mod player_move;
 mod position;
 
 use crate::io_controller::IOController;

@@ -1,24 +1,26 @@
-use crate::pieces::piece::Piece;
+use crate::{
+  pieces::piece::Piece, 
+  position::Position
+};
+
 
 #[derive(Clone)]
 pub struct Bishop {
-  row: usize,
-  column: usize,
-  pub white: bool
+  white: bool
 }
 
 impl Bishop {
-  pub fn new(row: usize, column: usize, white: bool) -> Bishop {
-    Bishop { row, column, white }
+  pub fn new(white: bool) -> Bishop {
+    Bishop { white }
   }
 }
 
 impl Piece for Bishop {
-  fn get_position(&self) -> (usize, usize) {
-    (self.row, self.column)
+  fn is_white(&self) -> bool {
+    self.white
   }
 
-  fn get_moves(&self) -> Vec<(usize, usize)> {
+  fn get_moves(&self) -> Vec<Position> {
     todo!()
   }
 }

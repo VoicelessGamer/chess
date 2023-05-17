@@ -6,6 +6,7 @@ mod game;
 mod board;
 mod config;
 mod pieces;
+mod move_data;
 mod player_move;
 mod position;
 

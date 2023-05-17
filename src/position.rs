@@ -1,3 +1,4 @@
+#[derive(Eq, Hash, Clone, Debug)]
 pub struct Position {
   pub row: usize,
   pub column: usize

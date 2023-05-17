@@ -1,6 +1,7 @@
 use crate::{
   pieces::piece::Piece, 
-  position::Position
+  position::Position,
+  move_data::MoveData
 };
 
 #[derive(Clone)]
@@ -19,7 +20,7 @@ impl Piece for Pawn {
     self.white
   }
 
-  fn get_moves(&self) -> Vec<Position> {
+  fn get_move_data(&self, origin: Position) -> MoveData {
     todo!()
   }
 }

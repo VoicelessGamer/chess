@@ -1,6 +1,7 @@
 use crate::{
   pieces::piece::Piece,
   pieces::*,
+  move_data::MoveData, 
   position::Position
 };
 
@@ -15,6 +16,15 @@ pub enum ChessPiece {
   Rook(Box<rook::Rook>)
 }
 
+impl ChessPiece {
+  pub fn is_king(&self) -> bool {
+    match self {
+        ChessPiece::King(_) => true,
+        _ => false
+    }
+  }
+}
+
 impl Piece for ChessPiece {
   fn is_white(&self) -> bool {
     match self {
@@ -27,14 +37,14 @@ impl Piece for ChessPiece {
     }
   }
 
-  fn get_moves(&self) -> Vec<Position> {
+  fn get_move_data(&self, origin: Position) -> MoveData {
     match self {
-        ChessPiece::Bishop(bishop) => bishop.get_moves(),
-        ChessPiece::King(king) => king.get_moves(),
-        ChessPiece::Knight(knight) => knight.get_moves(),
-        ChessPiece::Pawn(pawn) => pawn.get_moves(),
-        ChessPiece::Queen(queen) => queen.get_moves(),
-        ChessPiece::Rook(rook) => rook.get_moves(),
+        ChessPiece::Bishop(bishop) => bishop.get_move_data(origin),
+        ChessPiece::King(king) => king.get_move_data(origin),
+        ChessPiece::Knight(knight) => knight.get_move_data(origin),
+        ChessPiece::Pawn(pawn) => pawn.get_move_data(origin),
+        ChessPiece::Queen(queen) => queen.get_move_data(origin),
+        ChessPiece::Rook(rook) => rook.get_move_data(origin),
     }
   }
 }

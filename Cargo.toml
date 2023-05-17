@@ -1,6 +1,6 @@
 [package]
 name = "chess"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Adam Matthews <a.matthews42@outlook.com>"]
 edition = "2021"
 

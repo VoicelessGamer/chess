@@ -37,14 +37,14 @@ impl Piece for ChessPiece {
     }
   }
 
-  fn get_move_data(&self, origin: Position) -> MoveData {
+  fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
     match self {
-        ChessPiece::Bishop(bishop) => bishop.get_move_data(origin),
-        ChessPiece::King(king) => king.get_move_data(origin),
-        ChessPiece::Knight(knight) => knight.get_move_data(origin),
-        ChessPiece::Pawn(pawn) => pawn.get_move_data(origin),
-        ChessPiece::Queen(queen) => queen.get_move_data(origin),
-        ChessPiece::Rook(rook) => rook.get_move_data(origin),
+        ChessPiece::Bishop(bishop) => bishop.get_move_data(origin, board),
+        ChessPiece::King(king) => king.get_move_data(origin, board),
+        ChessPiece::Knight(knight) => knight.get_move_data(origin, board),
+        ChessPiece::Pawn(pawn) => pawn.get_move_data(origin, board),
+        ChessPiece::Queen(queen) => queen.get_move_data(origin, board),
+        ChessPiece::Rook(rook) => rook.get_move_data(origin, board),
     }
   }
 }

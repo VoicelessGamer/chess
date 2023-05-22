@@ -8,3 +8,5 @@ pub mod queen;
 pub mod rook;
 
 pub mod chess_piece;
+
+mod move_data_util;

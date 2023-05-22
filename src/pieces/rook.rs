@@ -2,7 +2,8 @@ use crate::{
   pieces::piece::Piece, 
   position::{Position},
   move_data::MoveData,
-  pieces::chess_piece::ChessPiece
+  pieces::chess_piece::ChessPiece,
+  pieces::move_data_util::move_data_util
 };
 
 #[derive(Clone)]
@@ -22,133 +23,35 @@ impl Piece for Rook {
   }
 
   fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
+    let mut moves: Vec<Position> = vec![];                // Opposing pieces under attack by this piece
     let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
     let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
     let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
-    let mut current_path: Vec<Position> = vec![];
 
-    let mut pinned: Option<Position> = None;
-    let mut checking = false;
+    let row = origin.row as i8;
+    let column = origin.column as i8;
     
     // Check down
-    for row in (0..origin.row).rev() {
-      if examine_position(row, origin.column, board, self.white, &mut attacks, &mut defends, &mut current_path, &mut pinned, &mut checking) {
-        break;
-      }
-    }
-
-    if pinned.is_some() {
-      pins.push(pinned.unwrap());
-      pinned = None;
-    }
-
-    if checking {
-      checking_path = Some(current_path);
-    }
-    checking = false;
-    current_path = vec![];
+    move_data_util::examine_line((-1, 0), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
 
     // Check up
-    for row in origin.row+1..board.len() {
-      if examine_position(row, origin.column, board, self.white, &mut attacks, &mut defends, &mut current_path, &mut pinned, &mut checking) {
-        break;
-      }
-    }
-
-    if pinned.is_some() {
-      pins.push(pinned.unwrap());
-      pinned = None;
-    }
-
-    if checking {
-      checking_path = Some(current_path);
-    }
-    checking = false;
-    current_path = vec![];
+    move_data_util::examine_line((1, 0), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
 
     // Check left
-    for column in (0..origin.column).rev() {
-      if examine_position(origin.row, column, board, self.white, &mut attacks, &mut defends, &mut current_path, &mut pinned, &mut checking) {
-        break;
-      }
-    }
-
-    if pinned.is_some() {
-      pins.push(pinned.unwrap());
-      pinned = None;
-    }
-
-    if checking {
-      checking_path = Some(current_path);
-    }
-    checking = false;
-    current_path = vec![];
+    move_data_util::examine_line((0, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
 
     // Check right
-    for column in origin.column+1..board[origin.row].len() {
-      if examine_position(origin.row, column, board, self.white, &mut attacks, &mut defends, &mut current_path, &mut pinned, &mut checking) {
-        break;
-      }
-    }
-
-    if pinned.is_some() {
-      pins.push(pinned.unwrap());
-    }
-
-    if checking {
-      checking_path = Some(current_path);
-    }
+    move_data_util::examine_line((0, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
 
     return MoveData {
       position: origin,
-      attacks,
+      moves,
       defends,
       pins,
       checking_path
     }
   }
 }
-
-fn examine_position(row:usize, column: usize, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool,
-                    attacks: &mut Vec<Position>, defends: &mut Vec<Position>, current_path: &mut Vec<Position>,
-                    pinned: &mut Option<Position>, checking: &mut bool) -> bool {
-
-  match &board[row][column] {
-    None => {
-      if pinned.is_none() {
-        attacks.push(Position {row, column});
-        current_path.push(Position {row, column});
-      }
-      return false;
-    },
-    Some(chess_piece) => {
-      if is_white == chess_piece.is_white() {
-        if pinned.is_none() {
-          defends.push(Position {row, column});
-        }
-        return true;
-      } else {
-        if pinned.is_none() {
-          attacks.push(Position {row, column});
-          if chess_piece.is_king() {
-            *checking = true;
-            return true;
-          } else {
-            *pinned = Some(Position {row, column});
-          }
-        } else {
-          if !chess_piece.is_king() {
-            *pinned = None;
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-  }
-}
-
 
 #[cfg(test)]
 mod rook_tests {
@@ -174,15 +77,15 @@ mod rook_tests {
 
     assert_eq!(move_data.position, Position {row: 2, column: 4});
 
-    assert_eq!(move_data.attacks.len(), 8);
-    assert!(move_data.attacks.contains(&Position {row: 0, column: 4}));
-    assert!(move_data.attacks.contains(&Position {row: 1, column: 4}));
-    assert!(move_data.attacks.contains(&Position {row: 2, column: 3}));
-    assert!(move_data.attacks.contains(&Position {row: 3, column: 4}));
-    assert!(move_data.attacks.contains(&Position {row: 4, column: 4}));
-    assert!(move_data.attacks.contains(&Position {row: 2, column: 5}));
-    assert!(move_data.attacks.contains(&Position {row: 2, column: 6}));
-    assert!(move_data.attacks.contains(&Position {row: 2, column: 7}));
+    assert_eq!(move_data.moves.len(), 8);
+    assert!(move_data.moves.contains(&Position {row: 0, column: 4}));
+    assert!(move_data.moves.contains(&Position {row: 1, column: 4}));
+    assert!(move_data.moves.contains(&Position {row: 2, column: 3}));
+    assert!(move_data.moves.contains(&Position {row: 3, column: 4}));
+    assert!(move_data.moves.contains(&Position {row: 4, column: 4}));
+    assert!(move_data.moves.contains(&Position {row: 2, column: 5}));
+    assert!(move_data.moves.contains(&Position {row: 2, column: 6}));
+    assert!(move_data.moves.contains(&Position {row: 2, column: 7}));
 
     assert_eq!(move_data.defends.len(), 1);
     assert!(move_data.defends.contains(&Position {row: 2, column: 2}));

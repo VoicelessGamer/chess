@@ -123,7 +123,7 @@ impl<C: Controller, V: View> Game<C, V> {
 
     // Check the target position is a valid position for that piece
     let pos = Position { row: player_move.current.row, column: player_move.current.column };
-    if !current_piece.get_move_data(pos, board).moves.contains(&player_move.target) {
+    if !current_piece.get_move_data(pos, board).attacks.contains(&player_move.target) {
       return false;
     }
 
@@ -209,7 +209,7 @@ impl<C: Controller, V: View> Game<C, V> {
             } else {
               // This part of the if-else statement is for retrieving the current player's data (current piece matches current player)
               let cloned_data = move_data.clone();
-              attacked_positions.extend(cloned_data.moves);
+              attacked_positions.extend(cloned_data.attacks);
               defended_player_pieces.extend(cloned_data.defends);
               players_move_data.push(move_data.clone());
               pinned_positions.extend(cloned_data.pins);
@@ -231,14 +231,14 @@ impl<C: Controller, V: View> Game<C, V> {
     // Check if all opposing standard pieces cannot move
     let mut can_move = false;
     for move_data in &opposing_move_data {
-      if !move_data.moves.is_empty() {
+      if !move_data.attacks.is_empty() {
         can_move = true;
         break;
       }
     }
     // If no standard piece can move, check if the king has any available moves that are not under attack by current player
     if !can_move {
-      for king_move in &opposing_king.as_ref().unwrap().moves {
+      for king_move in &opposing_king.as_ref().unwrap().attacks {
         if !attacked_positions.contains(king_move) {
           can_move = true;
         }
@@ -261,7 +261,7 @@ impl<C: Controller, V: View> Game<C, V> {
     let king_move_data = opposing_king.unwrap();
 
     // Check if the king can move out of check
-    for position in &king_move_data.moves {
+    for position in &king_move_data.attacks {
       if !attacked_positions.contains(&position) {
         return (player_check, State::Active);
       }
@@ -280,20 +280,20 @@ impl<C: Controller, V: View> Game<C, V> {
       for move_data in &opposing_move_data {
         if !pinned_positions.contains(&move_data.position) {
           let mut can_block = false;
-          for attack_move in &move_data.moves {
+          for attack_move in &move_data.attacks {
             if checking_piece.checking_path.as_ref().unwrap().contains(attack_move) {
               can_block = true;
               break;
             }
           }
-          if (&move_data.moves).contains(&position) || can_block {
+          if (&move_data.attacks).contains(&position) || can_block {
             return (player_check, State::Active);
           }
         }
       }
 
       // If checking piece is undefended and king can take then it is still check
-      if !defended_player_pieces.contains(&position) && (&king_move_data.moves).contains(&position) {
+      if !defended_player_pieces.contains(&position) && (&king_move_data.attacks).contains(&position) {
         return (player_check, State::Active);
       }
 
@@ -304,7 +304,7 @@ impl<C: Controller, V: View> Game<C, V> {
       let mut can_take = false;
       for checking_piece in &checking_pieces {
         let position = &checking_piece.position;
-        if !defended_player_pieces.contains(&position) && (&king_move_data.moves).contains(&position) {
+        if !defended_player_pieces.contains(&position) && (&king_move_data.attacks).contains(&position) {
           can_take = true;
         }
       }

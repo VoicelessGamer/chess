@@ -1,4 +1,4 @@
-pub mod move_data_util {
+pub mod piece_util {
   use crate::{
     position::Position, 
     pieces::{
@@ -12,7 +12,7 @@ pub mod move_data_util {
    * The vectors passed into the function are updated with the calculated information.
    */
   pub fn examine_line(direction: (i8, i8), origin_row: i8, origin_column: i8, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool, 
-  moves: &mut Vec<Position>, defends: &mut Vec<Position>, pins: &mut Vec<Position>, checking_path: &mut Option<Vec<Position>>) {
+                      moves: &mut Vec<Position>, defends: &mut Vec<Position>, pins: &mut Vec<Position>, checking_path: &mut Option<Vec<Position>>) {
 
     let mut current_path: Vec<Position> = vec![];
     let mut pinned: Option<Position> = None;
@@ -27,7 +27,7 @@ pub mod move_data_util {
      * the examined position results in no more positions needing to be checked
      */
     while row >= 0 && column >= 0 && (row as usize) < board.len() && (column as usize) < board[row as usize].len() {
-      if examine_position(row as usize, column as usize, board, is_white, moves, defends, &mut current_path, &mut pinned, &mut verified_pin, &mut checking) {
+      if examine_pinnable_position(row as usize, column as usize, board, is_white, moves, defends, &mut current_path, &mut pinned, &mut verified_pin, &mut checking) {
         break;
       }
       row = row + direction.0 ;
@@ -51,9 +51,9 @@ pub mod move_data_util {
    * of the same colour, the position contains thee opposing king or an opposing piece is in the position
    * but the pinned option is already Some().
    */
-  pub fn examine_position(row:usize, column: usize, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool,
-                    moves: &mut Vec<Position>, defends: &mut Vec<Position>, current_path: &mut Vec<Position>,
-                    pinned: &mut Option<Position>, verified_pin: &mut bool, checking: &mut bool) -> bool {
+  fn examine_pinnable_position(row:usize, column: usize, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool,
+                          moves: &mut Vec<Position>, defends: &mut Vec<Position>, current_path: &mut Vec<Position>,
+                          pinned: &mut Option<Position>, verified_pin: &mut bool, checking: &mut bool) -> bool {
 
     match &board[row][column] {
       None => {
@@ -95,6 +95,36 @@ pub mod move_data_util {
           }
         }
         return false;
+      }
+    }
+  }
+
+  /**
+   * Examines a position on the board and updates the reference vectors accordingly.
+   */
+  pub fn examine_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Box<ChessPiece>>>>,
+                      is_white: bool, moves: &mut Vec<Position>, defends: &mut Vec<Position>, checking: &mut bool) {
+
+    let row= row_to_check as usize;
+    let column= column_to_check as usize;
+
+    if row_to_check < 0 || column_to_check < 0 || row >= board.len() || column >= board[row].len() {
+      return;
+    }
+
+    match &board[row][column] {
+      None => {
+        moves.push(Position {row, column});
+      },
+      Some(chess_piece) => {
+        if is_white == chess_piece.is_white() { // Piece in this position is friendly
+          defends.push(Position {row, column});
+        } else { // Piece in this position is an enemy piece        
+          moves.push(Position {row, column});
+          if chess_piece.is_king() {
+            *checking = true;
+          }
+        }
       }
     }
   }

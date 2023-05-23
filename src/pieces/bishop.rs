@@ -3,7 +3,7 @@ use crate::{
   position::Position,
   move_data::MoveData,
   pieces::chess_piece::ChessPiece,
-  pieces::move_data_util::move_data_util
+  pieces::piece_util::piece_util::examine_line
 };
 
 
@@ -24,7 +24,7 @@ impl Piece for Bishop {
   }
 
   fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut moves: Vec<Position> = vec![];                // Opposing pieces under attack by this piece
+    let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
     let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
     let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
     let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
@@ -33,20 +33,20 @@ impl Piece for Bishop {
     let column = origin.column as i8;
 
     // Check up-left
-    move_data_util::examine_line((1, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check up-right
-    move_data_util::examine_line((1, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check down-left
-    move_data_util::examine_line((-1, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((-1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check down-right
-    move_data_util::examine_line((-1, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((-1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     return MoveData {
       position: origin,
-      moves,
+      attacks,
       defends,
       pins,
       checking_path
@@ -56,7 +56,7 @@ impl Piece for Bishop {
 
 #[cfg(test)]
 mod bishop_tests {
-    use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
+  use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
 
   #[test]
   fn test_attack_defend_pin() {
@@ -78,13 +78,13 @@ mod bishop_tests {
 
     assert_eq!(move_data.position, Position {row: 2, column: 2});
 
-    assert_eq!(move_data.moves.len(), 6);
-    assert!(move_data.moves.contains(&Position {row: 0, column: 0}));
-    assert!(move_data.moves.contains(&Position {row: 1, column: 1}));
-    assert!(move_data.moves.contains(&Position {row: 1, column: 3}));
-    assert!(move_data.moves.contains(&Position {row: 0, column: 4}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 3}));
-    assert!(move_data.moves.contains(&Position {row: 4, column: 4}));
+    assert_eq!(move_data.attacks.len(), 6);
+    assert!(move_data.attacks.contains(&Position {row: 0, column: 0}));
+    assert!(move_data.attacks.contains(&Position {row: 1, column: 1}));
+    assert!(move_data.attacks.contains(&Position {row: 1, column: 3}));
+    assert!(move_data.attacks.contains(&Position {row: 0, column: 4}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 3}));
+    assert!(move_data.attacks.contains(&Position {row: 4, column: 4}));
 
     assert_eq!(move_data.defends.len(), 1);
     assert!(move_data.defends.contains(&Position {row: 3, column: 1}));
@@ -118,6 +118,5 @@ mod bishop_tests {
     assert_eq!(checking_path.len(), 2);
     assert!(checking_path.contains(&Position {row: 3, column: 3}));
     assert!(checking_path.contains(&Position {row: 2, column: 4}));
-
   }
 }

@@ -9,4 +9,4 @@ pub mod rook;
 
 pub mod chess_piece;
 
-mod move_data_util;
+mod piece_util;

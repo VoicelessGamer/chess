@@ -3,7 +3,7 @@ use crate::{
   position::Position,
   move_data::MoveData,
   pieces::chess_piece::ChessPiece,
-  pieces::move_data_util::move_data_util
+  pieces::piece_util::piece_util::examine_line
 };
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ impl Piece for Queen {
   }
 
   fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut moves: Vec<Position> = vec![];                // Opposing pieces under attack by this piece
+    let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
     let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
     let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
     let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
@@ -32,32 +32,32 @@ impl Piece for Queen {
     let column = origin.column as i8;
     
     // Check down
-    move_data_util::examine_line((-1, 0), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((-1, 0), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check up
-    move_data_util::examine_line((1, 0), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((1, 0), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check left
-    move_data_util::examine_line((0, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((0, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check right
-    move_data_util::examine_line((0, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((0, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
     
     // Check up-left
-    move_data_util::examine_line((1, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check up-right
-    move_data_util::examine_line((1, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check down-left
-    move_data_util::examine_line((-1, -1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((-1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     // Check down-right
-    move_data_util::examine_line((-1, 1), row, column, board, self.white, &mut moves, &mut defends, &mut pins, &mut checking_path);
+    examine_line((-1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
     return MoveData {
       position: origin,
-      moves,
+      attacks,
       defends,
       pins,
       checking_path
@@ -67,7 +67,7 @@ impl Piece for Queen {
 
 #[cfg(test)]
 mod queen_tests {
-    use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
+  use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
 
   #[test]
   fn test_attack_defend_pin() {
@@ -90,26 +90,26 @@ mod queen_tests {
 
     assert_eq!(move_data.position, Position {row: 3, column: 5});
 
-    assert_eq!(move_data.moves.len(), 19);
-    assert!(move_data.moves.contains(&Position {row: 0, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 1, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 2, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 4, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 5, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 6, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 7, column: 5}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 0}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 1}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 2}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 3}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 4}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 6}));
-    assert!(move_data.moves.contains(&Position {row: 3, column: 7}));
-    assert!(move_data.moves.contains(&Position {row: 4, column: 4}));
-    assert!(move_data.moves.contains(&Position {row: 2, column: 6}));
-    assert!(move_data.moves.contains(&Position {row: 2, column: 4}));
-    assert!(move_data.moves.contains(&Position {row: 4, column: 6}));
-    assert!(move_data.moves.contains(&Position {row: 5, column: 7}));
+    assert_eq!(move_data.attacks.len(), 19);
+    assert!(move_data.attacks.contains(&Position {row: 0, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 1, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 2, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 4, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 5, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 6, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 7, column: 5}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 0}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 1}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 2}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 3}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 4}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 6}));
+    assert!(move_data.attacks.contains(&Position {row: 3, column: 7}));
+    assert!(move_data.attacks.contains(&Position {row: 4, column: 4}));
+    assert!(move_data.attacks.contains(&Position {row: 2, column: 6}));
+    assert!(move_data.attacks.contains(&Position {row: 2, column: 4}));
+    assert!(move_data.attacks.contains(&Position {row: 4, column: 6}));
+    assert!(move_data.attacks.contains(&Position {row: 5, column: 7}));
 
     assert_eq!(move_data.defends.len(), 1);
     assert!(move_data.defends.contains(&Position {row: 1, column: 3}));
@@ -147,6 +147,5 @@ mod queen_tests {
     assert!(checking_path.contains(&Position {row: 4, column: 4}));
     assert!(checking_path.contains(&Position {row: 5, column: 5}));
     assert!(checking_path.contains(&Position {row: 6, column: 6}));
-
   }
 }

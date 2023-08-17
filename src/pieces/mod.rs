@@ -7,4 +7,4 @@ pub mod pawn;
 pub mod queen;
 pub mod rook;
 
-pub mod chess_piece;
+mod piece_util;

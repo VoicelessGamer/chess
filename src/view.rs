@@ -1,5 +1,5 @@
-use crate::{pieces::chess_piece::ChessPiece};
+use crate::{pieces::piece::Piece};
 
 pub trait View {
-  fn update_state(&mut self, board: &Vec<Vec<Option<Box<ChessPiece>>>>);
+  fn update_state(&mut self, board: &Vec<Vec<Option<Piece>>>);
 }

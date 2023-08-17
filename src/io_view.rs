@@ -1,9 +1,6 @@
 use crate::{
   view::View,
-  pieces::{
-    chess_piece::ChessPiece, 
-    piece::Piece
-  }
+  pieces::piece::Piece
 };
 
 pub struct IOView {
@@ -11,7 +8,7 @@ pub struct IOView {
 }
 
 impl View for IOView {
-  fn update_state(&mut self, board: &Vec<Vec<Option<Box<ChessPiece>>>>) {
+  fn update_state(&mut self, board: &Vec<Vec<Option<Piece>>>) {
     if self.use_unicode {
       self.print_unicode_board(board);
     } else {
@@ -21,7 +18,7 @@ impl View for IOView {
 }
 
 impl IOView {
-  fn print_unicode_board(&mut self, board: &Vec<Vec<Option<Box<ChessPiece>>>>) {
+  fn print_unicode_board(&mut self, board: &Vec<Vec<Option<Piece>>>) {
     println!("   0 1 2 3 4 5 6 7");
 
     let mut row_index = 7;
@@ -31,25 +28,25 @@ impl IOView {
       for col in row.iter() {
         if col.is_some() {
           let piece = col.as_ref().unwrap();
-          match &**piece {
-            ChessPiece::Bishop(bishop) => {
-                if bishop.is_white() { print!("♗ ") } else { print!("♝ ") };
-              },
-              ChessPiece::King(king) => {
-                if king.is_white() { print!("♔ ") } else { print!("♚ ") };
-              },
-              ChessPiece::Knight(knight) => {
-                if knight.is_white() { print!("♘ ") } else { print!("♞ ") };
-              },
-              ChessPiece::Pawn(pawn) => {
-                if pawn.is_white() { print!("♙ ") } else { print!("♟︎ ") };
-              },
-              ChessPiece::Queen(queen) => {
-                if queen.is_white() { print!("♕ ") } else { print!("♛ ") };
-              },
-              ChessPiece::Rook(rook) => {
-                if rook.is_white() { print!("♖ ") } else { print!("♜ ") };
-              },
+          match &piece {
+            Piece::Bishop(is_white) => {
+              if *is_white { print!("♗ ") } else { print!("♝ ") };
+            },
+            Piece::King(is_white) => {
+              if *is_white{ print!("♔ ") } else { print!("♚ ") };
+            },
+            Piece::Knight(is_white) => {
+              if *is_white { print!("♘ ") } else { print!("♞ ") };
+            },
+            Piece::Pawn(is_white) => {
+              if *is_white { print!("♙ ") } else { print!("♟︎ ") };
+            },
+            Piece::Queen(is_white) => {
+              if *is_white { print!("♕ ") } else { print!("♛ ") };
+            },
+            Piece::Rook(is_white) => {
+              if *is_white { print!("♖ ") } else { print!("♜ ") };
+            },
           }
           
         } else {
@@ -68,7 +65,7 @@ impl IOView {
     println!("");
   }
 
-  fn print_letter_board(&mut self, board: &Vec<Vec<Option<Box<ChessPiece>>>>) {
+  fn print_letter_board(&mut self, board: &Vec<Vec<Option<Piece>>>) {
     println!("    0  1  2  3  4  5  6  7");
 
     let mut row_index = 7;
@@ -78,29 +75,29 @@ impl IOView {
       for col in row.iter() {
         if col.is_some() {
           let piece = col.as_ref().unwrap();
-          match &**piece {
-            ChessPiece::Bishop(bishop) => {
-                if bishop.is_white() { print!("w") } else { print!("b") };
+          match &piece {
+            Piece::Bishop(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("B ");
               },
-              ChessPiece::King(king) => {
-                if king.is_white() { print!("w") } else { print!("b") };
+              Piece::King(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("K ");
               },
-              ChessPiece::Knight(knight) => {
-                if knight.is_white() { print!("w") } else { print!("b") };
+              Piece::Knight(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("N ");
               },
-              ChessPiece::Pawn(pawn) => {
-                if pawn.is_white() { print!("w") } else { print!("b") };
+              Piece::Pawn(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("P ");
               },
-              ChessPiece::Queen(queen) => {
-                if queen.is_white() { print!("w") } else { print!("b") };
+              Piece::Queen(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("Q ");
               },
-              ChessPiece::Rook(rook) => {
-                if rook.is_white() { print!("w") } else { print!("b") };
+              Piece::Rook(is_white) => {
+                if *is_white { print!("w") } else { print!("b") };
                 print!("R ");
               },
           }

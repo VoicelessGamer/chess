@@ -1,10 +1,28 @@
-use crate::{
-  move_data::MoveData, 
-  position::Position,
-  pieces::chess_piece::ChessPiece
-};
+#[derive(Clone)]
+pub enum Piece {
+  Bishop(bool),
+  King(bool),
+  Knight(bool),
+  Pawn(bool),
+  Queen(bool),
+  Rook(bool)
+}
 
-pub trait Piece: Clone {
-  fn is_white(&self) -> bool;
-  fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData;
+impl Piece {
+  pub fn is_king(&self) -> bool {
+    match self {
+      Piece::King(_) => true,
+      _ => false
+    }
+  }
+  pub fn is_white(&self) -> bool {
+    match self {
+      Piece::Bishop(is_white) => *is_white,
+      Piece::King(is_white) => *is_white,
+      Piece::Knight(is_white) => *is_white,
+      Piece::Pawn(is_white) => *is_white,
+      Piece::Queen(is_white) => *is_white,
+      Piece::Rook(is_white) => *is_white,
+    }
+  }
 }

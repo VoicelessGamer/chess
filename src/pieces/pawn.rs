@@ -17,6 +17,7 @@ pub fn get_pawn_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> 
   let column = origin.column as i8;
 
   // Pawn attack direction is dependent on piece colour
+  // TODO: Dunno how I missed it but this is only checking diagonals for pawn
   if is_white {
     examine_position(row + 1, column - 1, board, is_white, &mut attacks, &mut defends, &mut checking);
     examine_position(row + 1, column + 1, board, is_white, &mut attacks, &mut defends, &mut checking);

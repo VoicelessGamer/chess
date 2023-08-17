@@ -74,12 +74,12 @@ fn get_move_input() -> PlayerMove {
     if split.len() == 4 {
       return PlayerMove {
         current: Position {
-          row: split[0].parse::<usize>().unwrap(), 
-          column: split[1].parse::<usize>().unwrap()
+          row: split[1].parse::<usize>().unwrap(), 
+          column: split[0].parse::<usize>().unwrap()
         }, 
         target: Position {
-          row: split[2].parse::<usize>().unwrap(), 
-          column: split[3].parse::<usize>().unwrap()
+          row: split[3].parse::<usize>().unwrap(), 
+          column: split[2].parse::<usize>().unwrap()
         }
       }
     }

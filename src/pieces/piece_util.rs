@@ -1,17 +1,14 @@
 pub mod piece_util {
   use crate::{
     position::Position, 
-    pieces::{
-      chess_piece::ChessPiece, 
-      piece::Piece
-    }
+    pieces::piece::Piece
   };
 
   /**
    * Examines each position in a given direction from an origin point, calculating the relevant data for a MoveData struct.
    * The vectors passed into the function are updated with the calculated information.
    */
-  pub fn examine_line(direction: (i8, i8), origin_row: i8, origin_column: i8, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool, 
+  pub fn examine_line(direction: (i8, i8), origin_row: i8, origin_column: i8, board: &Vec<Vec<Option<Piece>>>, is_white: bool, 
                       moves: &mut Vec<Position>, defends: &mut Vec<Position>, pins: &mut Vec<Position>, checking_path: &mut Option<Vec<Position>>) {
 
     let mut current_path: Vec<Position> = vec![];
@@ -51,7 +48,7 @@ pub mod piece_util {
    * of the same colour, the position contains thee opposing king or an opposing piece is in the position
    * but the pinned option is already Some().
    */
-  fn examine_pinnable_position(row:usize, column: usize, board: &Vec<Vec<Option<Box<ChessPiece>>>>, is_white: bool,
+  fn examine_pinnable_position(row:usize, column: usize, board: &Vec<Vec<Option<Piece>>>, is_white: bool,
                           moves: &mut Vec<Position>, defends: &mut Vec<Position>, current_path: &mut Vec<Position>,
                           pinned: &mut Option<Position>, verified_pin: &mut bool, checking: &mut bool) -> bool {
 
@@ -102,7 +99,7 @@ pub mod piece_util {
   /**
    * Examines a position on the board and updates the reference vectors accordingly.
    */
-  pub fn examine_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Box<ChessPiece>>>>,
+  pub fn examine_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Piece>>>,
                       is_white: bool, moves: &mut Vec<Position>, defends: &mut Vec<Position>, checking: &mut bool) {
 
     let row= row_to_check as usize;

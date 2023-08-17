@@ -2,63 +2,46 @@ use crate::{
   pieces::piece::Piece, 
   position::Position,
   move_data::MoveData,
-  pieces::chess_piece::ChessPiece,
   pieces::piece_util::piece_util::examine_position
 };
 
+pub fn get_knight_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+  let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
+  let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
+  let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
+  let mut checking = false;
 
-#[derive(Clone)]
-pub struct Knight {
-  white: bool
-}
+  let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
 
-impl Knight {
-  pub fn new(white: bool) -> Knight {
-    Knight { white }
+  let row = origin.row as i8;
+  let column = origin.column as i8;
+
+  // Examine each possible position for a knight
+  examine_position(row + 2, column + 1, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 1, column + 2, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 1, column + 2, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 2, column + 1, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 2, column - 1, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 1, column - 2, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 1, column - 2, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 2, column - 1, board, is_white, &mut attacks, &mut defends, &mut checking);
+  
+  if checking {
+    checking_path = Some(vec![]);
   }
-}
 
-impl Piece for Knight {
-  fn is_white(&self) -> bool {
-    self.white
-  }
-
-  fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
-    let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
-    let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
-    let mut checking = false;
-
-    let row = origin.row as i8;
-    let column = origin.column as i8;
-
-    // Examine each possible position for a knight
-    examine_position(row + 2, column + 1, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row + 1, column + 2, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row - 1, column + 2, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row - 2, column + 1, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row - 2, column - 1, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row - 1, column - 2, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row + 1, column - 2, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    examine_position(row + 2, column - 1, board, self.is_white(), &mut attacks, &mut defends, &mut checking);
-    
-    if checking {
-      checking_path = Some(vec![]);
-    }
-
-    return MoveData {
-      position: origin,
-      attacks,
-      defends,
-      pins: vec![], // Knights cannot pin
-      checking_path
-    }
+  return MoveData {
+    position: origin,
+    attacks,
+    defends,
+    pins: vec![], // Knights cannot pin
+    checking_path
   }
 }
 
 #[cfg(test)]
 mod knight_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
+  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::knight::*};
 
   #[test]
   fn test_standard_positions() {
@@ -73,7 +56,7 @@ mod knight_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[3][3].as_ref().unwrap().get_move_data(Position {row: 3, column: 3}, &current_board);
+    let move_data = get_knight_move_data(Position {row: 3, column: 3}, &current_board);
 
     assert_eq!(move_data.attacks.len(), 8);
     assert!(move_data.attacks.contains(&Position {row: 5, column: 4}));
@@ -102,7 +85,7 @@ mod knight_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[1][2].as_ref().unwrap().get_move_data(Position {row: 1, column: 2}, &current_board);
+    let move_data = get_knight_move_data(Position {row: 1, column: 2}, &current_board);
 
     assert_eq!(move_data.position, Position {row: 1, column: 2});
 
@@ -135,7 +118,7 @@ mod knight_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[1][0].as_ref().unwrap().get_move_data(Position {row: 1, column: 0}, &current_board);
+    let move_data = get_knight_move_data(Position {row: 1, column: 0}, &current_board);
 
     assert!(move_data.checking_path.is_some());
 

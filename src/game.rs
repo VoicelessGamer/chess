@@ -7,10 +7,7 @@ use crate::{
   config::*,
   player_move::PlayerMove,
   position::Position, 
-  pieces::{
-    chess_piece::ChessPiece, 
-    piece::Piece
-  }, 
+  pieces::{piece::*, self},
   move_data::MoveData
 };
 
@@ -108,7 +105,7 @@ impl<C: Controller, V: View> Game<C, V> {
    * to the supplied board after this function call will be referencing a
    * modified board.
    */
-  fn validate_move(&self, player_move: &PlayerMove, board: &mut Vec<Vec<Option<Box<ChessPiece>>>>) -> bool {
+  fn validate_move(&self, player_move: &PlayerMove, board: &mut Vec<Vec<Option<Piece>>>) -> bool {
     // Check the chosen piece exists and is not an empty space on the board
     let current_piece = match &board[player_move.current.row][player_move.current.column] {
       None => return false,
@@ -123,7 +120,7 @@ impl<C: Controller, V: View> Game<C, V> {
 
     // Check the target position is a valid position for that piece
     let pos = Position { row: player_move.current.row, column: player_move.current.column };
-    if !current_piece.get_move_data(pos, board).attacks.contains(&player_move.target) {
+    if !get_move_data(pos, board).attacks.contains(&player_move.target) {
       return false;
     }
 
@@ -133,7 +130,7 @@ impl<C: Controller, V: View> Game<C, V> {
     board[player_move.target.row][player_move.target.column] = chess_piece;
 
     // Check if the move would cause the active player's king to be under attack
-    // This also resolves the check for if this move would resolve the any existing check
+    // This also resolves the check for if this move would resolve any existing check
     let mut is_checking: bool = false;
     'outer:  for i in 0..board.len() {
       let row = &board[i];
@@ -146,7 +143,7 @@ impl<C: Controller, V: View> Game<C, V> {
                 (!self.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
 
                 let position = Position {row: i, column: j};
-                let move_data = chess_piece.get_move_data(position, board);
+                let move_data = get_move_data(position, board);
 
                 if move_data.checking_path.is_some() {
                   return true;
@@ -173,7 +170,7 @@ impl<C: Controller, V: View> Game<C, V> {
    * checkmate on the opposing player. This function will return the state of 
    * check for the opposing player and the new game state.
    */
-  fn evaluate_board(&mut self, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> (bool, State) {
+  fn evaluate_board(&mut self, board: &Vec<Vec<Option<Piece>>>) -> (bool, State) {
     let mut opposing_king: Option<MoveData> = None;     // Move data for the opposing player's king
     let mut attacked_positions: Vec<Position> = vec![]; // List of all attacked positions for the current player
     let mut opposing_move_data: Vec<MoveData> = vec![]; // List of the move data for each piece of the opposing player
@@ -194,7 +191,7 @@ impl<C: Controller, V: View> Game<C, V> {
           None => continue,
           Some(chess_piece) => {
             let position = Position {row: i, column: j};
-            let move_data = chess_piece.get_move_data(position, board);
+            let move_data = get_move_data(position, board);
 
             if (self.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
                 (!self.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
@@ -319,5 +316,24 @@ impl<C: Controller, V: View> Game<C, V> {
     } else {
       return (player_check, State::BlackWin);
     }
+  }
+}
+
+/**
+ * Get the relevant move data based on the Piece type in the given position
+ */
+fn get_move_data(position: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+  match &board[position.row][position.column] {
+    Some(piece) => {
+      match piece {
+        Piece::Bishop(_) => pieces::bishop::get_bishop_move_data(position, board),
+        Piece::King(_) => pieces::king::get_king_move_data(position, board),
+        Piece::Knight(_) => pieces::knight::get_knight_move_data(position, board),
+        Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board),
+        Piece::Queen(_) => pieces::queen::get_queen_move_data(position, board),
+        Piece::Rook(_) => pieces::rook::get_rook_move_data(position, board),
+    }
+    },
+    None => todo!(),
   }
 }

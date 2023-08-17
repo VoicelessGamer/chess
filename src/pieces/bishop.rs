@@ -2,61 +2,44 @@ use crate::{
   pieces::piece::Piece, 
   position::Position,
   move_data::MoveData,
-  pieces::chess_piece::ChessPiece,
   pieces::piece_util::piece_util::examine_line
 };
 
+pub fn get_bishop_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+  let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
+  let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
+  let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
+  let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
 
-#[derive(Clone)]
-pub struct Bishop {
-  white: bool
-}
+  let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
 
-impl Bishop {
-  pub fn new(white: bool) -> Bishop {
-    Bishop { white }
-  }
-}
+  let row = origin.row as i8;
+  let column = origin.column as i8;
 
-impl Piece for Bishop {
-  fn is_white(&self) -> bool {
-    self.white
-  }
+  // Check up-left
+  examine_line((1, -1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
-  fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
-    let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
-    let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
-    let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
+  // Check up-right
+  examine_line((1, 1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
-    let row = origin.row as i8;
-    let column = origin.column as i8;
+  // Check down-left
+  examine_line((-1, -1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
-    // Check up-left
-    examine_line((1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
+  // Check down-right
+  examine_line((-1, 1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
-    // Check up-right
-    examine_line((1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
-
-    // Check down-left
-    examine_line((-1, -1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
-
-    // Check down-right
-    examine_line((-1, 1), row, column, board, self.white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
-
-    return MoveData {
-      position: origin,
-      attacks,
-      defends,
-      pins,
-      checking_path
-    }
+  return MoveData {
+    position: origin,
+    attacks,
+    defends,
+    pins,
+    checking_path
   }
 }
 
 #[cfg(test)]
 mod bishop_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
+  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::bishop::*};
 
   #[test]
   fn test_attack_defend_pin() {
@@ -74,7 +57,7 @@ mod bishop_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[2][2].as_ref().unwrap().get_move_data(Position {row: 2, column: 2}, &current_board);
+    let move_data = get_bishop_move_data(Position {row: 2, column: 2}, &current_board);
 
     assert_eq!(move_data.position, Position {row: 2, column: 2});
 
@@ -109,7 +92,7 @@ mod bishop_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[1][5].as_ref().unwrap().get_move_data(Position {row: 1, column: 5}, &current_board);
+    let move_data = get_bishop_move_data(Position {row: 1, column: 5}, &current_board);
 
     assert!(move_data.checking_path.is_some());
 

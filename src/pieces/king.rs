@@ -2,57 +2,40 @@ use crate::{
   pieces::piece::Piece, 
   position::Position,
   move_data::MoveData,
-  pieces::chess_piece::ChessPiece,
   pieces::piece_util::piece_util::examine_position
 };
 
+pub fn get_king_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+  let mut attacks: Vec<Position> = vec![]; // Opposing pieces under attack by this piece
+  let mut defends: Vec<Position> = vec![]; // Friendly pieces defended by this piece
 
-#[derive(Clone)]
-pub struct King {
-  white: bool
-}
+  let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
 
-impl King {
-  pub fn new(white: bool) -> King {
-    King { white }
-  }
-}
+  let row = origin.row as i8;
+  let column = origin.column as i8;
 
-impl Piece for King {
-  fn is_white(&self) -> bool {
-    self.white
-  }
+  // Examine each possible position for a king
+  examine_position(row + 1, column, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row + 1, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row + 1, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
 
-  fn get_move_data(&self, origin: Position, board: &Vec<Vec<Option<Box<ChessPiece>>>>) -> MoveData {
-    let mut attacks: Vec<Position> = vec![]; // Opposing pieces under attack by this piece
-    let mut defends: Vec<Position> = vec![]; // Friendly pieces defended by this piece
-
-    let row = origin.row as i8;
-    let column = origin.column as i8;
-
-    // Examine each possible position for a king
-    examine_position(row + 1, column, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row, column + 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row - 1, column, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row, column - 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row + 1, column + 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row - 1, column + 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row - 1, column - 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-    examine_position(row + 1, column - 1, board, self.is_white(), &mut attacks, &mut defends, &mut false);
-
-    return MoveData {
-      position: origin,
-      attacks,
-      defends,
-      pins: vec![], // Kings cannot pin
-      checking_path: None // Kings cannot check
-    }
+  return MoveData {
+    position: origin,
+    attacks,
+    defends,
+    pins: vec![], // Kings cannot pin
+    checking_path: None // Kings cannot check
   }
 }
 
 #[cfg(test)]
 mod king_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, pieces::piece::Piece, position::Position};
+  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::king::*};
 
   #[test]
   fn test_standard_positions() {
@@ -67,7 +50,7 @@ mod king_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[3][3].as_ref().unwrap().get_move_data(Position {row: 3, column: 3}, &current_board);
+    let move_data = get_king_move_data(Position {row: 3, column: 3}, &current_board);
 
     assert_eq!(move_data.attacks.len(), 8);
     assert!(move_data.attacks.contains(&Position {row: 4, column: 3}));
@@ -96,7 +79,7 @@ mod king_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = current_board[0][0].as_ref().unwrap().get_move_data(Position {row: 0, column: 0}, &current_board);
+    let move_data = get_king_move_data(Position {row: 0, column: 0}, &current_board);
 
     assert_eq!(move_data.position, Position {row: 0, column: 0});
 

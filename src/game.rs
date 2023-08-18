@@ -1,4 +1,4 @@
-use std::collections::{ HashSet };
+use std::collections::HashSet;
 
 use crate::{
   controller::Controller,
@@ -11,7 +11,7 @@ use crate::{
   move_data::MoveData
 };
 
-pub enum State {
+pub enum GameState {
   Active,
   BlackWin,
   WhiteWin,
@@ -19,15 +19,19 @@ pub enum State {
   Error
 }
 
+struct State {
+  white_turn: bool, // true if it is currently white's turn
+  game_state: GameState, // Current state of play
+  _white_castle: bool, // Whether white can still castle
+  _black_castle: bool, // Whether black can still castle
+  in_check: bool // Whether the current player's king is in check (updated for the next player after each move)
+}
+
 pub struct Game<C: Controller, V: View> {
   controller: C,
   view: V,
   board: Board,
-  white_turn: bool, // true if it is currently white's turn
-  state: State, // true while the game is still active (checkmate has NOT occurred)
-  _white_castle: bool, // Whether white can still castle
-  _black_castle: bool, // Whether black can still castle
-  player_check: bool // Whether the current player's king is in check (updated for the next player after each move)
+  state: State, // Holds the current state of the game
 }
 
 impl<C: Controller, V: View> Game<C, V> {
@@ -40,11 +44,13 @@ impl<C: Controller, V: View> Game<C, V> {
       controller,
       view,
       board: Board::new(&game_config.initial_board),
-      white_turn: game_config.white_turn,
-      state: State::Active,
-      _white_castle: game_config.white_castle,
-      _black_castle: game_config.black_castle,
-      player_check: false
+      state: State{
+        white_turn: game_config.white_turn,
+        game_state: GameState::Active,
+        _white_castle: game_config.white_castle,
+        _black_castle: game_config.black_castle,
+        in_check: false
+      }
     }
   }
 
@@ -52,8 +58,8 @@ impl<C: Controller, V: View> Game<C, V> {
    * Returns the current state of the game
    */
   #[allow(dead_code)]
-  pub fn get_state(&self) -> &State {
-    return &self.state;
+  pub fn get_state(&self) -> &GameState {
+    return &self.state.game_state;
   }
 
   /**
@@ -68,8 +74,8 @@ impl<C: Controller, V: View> Game<C, V> {
     self.view.update_state(&current_board);
     
     // Loop the turn based logic until there is an outcome for the game
-    while let State::Active = self.state {
-      let player_move = self.controller.get_move(self.white_turn);
+    while let GameState::Active = self.state.game_state {
+      let player_move = self.controller.get_move(self.state.white_turn);
 
       /*
        * Validate the chosen move
@@ -89,7 +95,7 @@ impl<C: Controller, V: View> Game<C, V> {
         self.view.update_state(&current_board);
 
         // Swap the active player
-        self.white_turn = !self.white_turn;
+        self.state.white_turn = !self.state.white_turn;
       }
     }
   }
@@ -111,14 +117,14 @@ impl<C: Controller, V: View> Game<C, V> {
     };
 
     // Check the chosen piece belongs to the current active player
-    if (self.white_turn && !current_piece.is_white()) ||
-        (!self.white_turn && current_piece.is_white()) {
+    if (self.state.white_turn && !current_piece.is_white()) ||
+        (!self.state.white_turn && current_piece.is_white()) {
       return false;
     }
 
     // Check the target position is a valid position for that piece
     let pos = Position { row: player_move.current.row, column: player_move.current.column };
-    if !get_move_data(pos, board).attacks.contains(&player_move.target) {
+    if !get_move_data(pos, board).valid_moves.contains(&player_move.target) {
       return false;
     }
 
@@ -137,8 +143,8 @@ impl<C: Controller, V: View> Game<C, V> {
         is_checking = match piece {
           None => false,
           Some(chess_piece) => {
-            if (self.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
-                (!self.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
+            if (self.state.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
+                (!self.state.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
 
               let position = Position {row: i, column: j};
               let move_data = get_move_data(position, board);
@@ -194,8 +200,8 @@ impl<C: Controller, V: View> Game<C, V> {
             let position = Position {row: i, column: j};
             let move_data = get_move_data(position, board);
 
-            if (self.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
-                (!self.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
+            if (self.state.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
+                (!self.state.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
               // This part of the if-else statement is for retrieving the opposing player's data
 
               // Check if this piece is the king and gather data to separate variable
@@ -224,8 +230,8 @@ impl<C: Controller, V: View> Game<C, V> {
 
     // If the opposing king was not found or if there is more than one checking piece then there has been an error in gameplay/logic, cannot continue
     if opposing_king.is_none() || checking_pieces.len() > 2 {
-      self.player_check = player_check;
-      self.state = State::Error;
+      self.state.in_check = player_check;
+      self.state.game_state = GameState::Error;
       return;
     }
 
@@ -240,7 +246,7 @@ impl<C: Controller, V: View> Game<C, V> {
     // For all opposing pieces that are pinned by current player, wipe the valid moves
     for mut move_data in opposing_move_data {
       if pinned_positions.contains(&move_data.position) {
-        move_data.attacks = vec![];
+        move_data.valid_moves = vec![];
       } else {
         opponent_can_move = true;
 
@@ -248,8 +254,11 @@ impl<C: Controller, V: View> Game<C, V> {
         if !one_checker_valid_defend && checking_pieces.len() == 1 {
           let checking_piece = &checking_pieces[0];
           let position = &checking_piece.position;
-          for attacked_position in &move_data.attacks {
-            if attacked_position == position {
+          let checking_path = checking_piece.checking_path.as_ref().unwrap(); // Checking pieces should always have Some(checking_path)
+          // Checking all the valid move positions by the opposing piece
+          for attacked_position in &move_data.valid_moves {
+            // If the checking piece can be captured 
+            if attacked_position == position || checking_path.contains(attacked_position) {
               one_checker_valid_defend = true;
               break;
             }
@@ -260,7 +269,7 @@ impl<C: Controller, V: View> Game<C, V> {
 
     // For the opposing king remove any moves that are not valid based on the current players' pieces
     let mut king_valid_moves = vec![];
-    for position in &opposing_king.as_ref().unwrap().attacks {
+    for position in &opposing_king.as_ref().unwrap().valid_moves {
       // Adding the valid moves (non defended positions) to a separate vec
       if !attacked_positions.contains(position) && attacked_positions.contains(position) || defended_player_pieces.contains(position) {
         king_valid_moves.push(position.clone());
@@ -268,29 +277,29 @@ impl<C: Controller, V: View> Game<C, V> {
       }
     }
     // Overwriting the kings valid moves
-    opposing_king.as_mut().unwrap().attacks = king_valid_moves;
+    opposing_king.as_mut().unwrap().valid_moves = king_valid_moves;
+
+    // TODO: Gather all valid moves for the opponent here, set in state
 
     // If not check and no opposing piece has a valid move then stalemate
     if !player_check && !opponent_can_move {
-      self.player_check = player_check;
-      self.state = State::Stalemate;
+      self.state.in_check = player_check;
+      self.state.game_state = GameState::Stalemate;
       return;
-    } else {
-      if !opposing_king.as_ref().unwrap().attacks.is_empty() || one_checker_valid_defend {
-        self.player_check = player_check;
-        self.state = State::Active;
-        return;
-      }
-
+    } else if player_check && opposing_king.as_ref().unwrap().valid_moves.is_empty() && !one_checker_valid_defend {
       // Opposing player in checkmate, change state to end game
-      if self.white_turn {
-        self.player_check = player_check;
-        self.state = State::WhiteWin;
+      if self.state.white_turn {
+        self.state.in_check = player_check;
+        self.state.game_state = GameState::WhiteWin;
       } else {
-        self.player_check = player_check;
-        self.state = State::BlackWin;
+        self.state.in_check = player_check;
+        self.state.game_state = GameState::BlackWin;
       }
     }
+
+    self.state.in_check = player_check;
+    self.state.game_state = GameState::Active;
+    return;
   }
 }
 

@@ -6,7 +6,8 @@ use crate::{
 };
 
 pub fn get_king_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
-  let mut attacks: Vec<Position> = vec![]; // Opposing pieces under attack by this piece
+  let mut valid_moves: Vec<Position> = vec![]; // Valid positions this piece can move to including captures
+  let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
   let mut defends: Vec<Position> = vec![]; // Friendly pieces defended by this piece
 
   let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
@@ -15,17 +16,18 @@ pub fn get_king_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> 
   let column = origin.column as i8;
 
   // Examine each possible position for a king
-  examine_position(row + 1, column, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row - 1, column, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row + 1, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row - 1, column + 1, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row - 1, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
-  examine_position(row + 1, column - 1, board, is_white, &mut attacks, &mut defends, &mut false);
+  examine_position(row + 1, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row + 1, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row - 1, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
+  examine_position(row + 1, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut false);
 
   return MoveData {
     position: origin,
+    valid_moves,
     attacks,
     defends,
     pins: vec![], // Kings cannot pin

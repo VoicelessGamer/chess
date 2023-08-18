@@ -6,7 +6,8 @@ use crate::{
 };
 
 pub fn get_knight_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
-  let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
+  let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
+  let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
   let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
   let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
   let mut checking = false;
@@ -17,14 +18,14 @@ pub fn get_knight_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -
   let column = origin.column as i8;
 
   // Examine each possible position for a knight
-  examine_position(row + 2, column + 1, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row + 1, column + 2, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row - 1, column + 2, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row - 2, column + 1, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row - 2, column - 1, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row - 1, column - 2, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row + 1, column - 2, board, is_white, &mut attacks, &mut defends, &mut checking);
-  examine_position(row + 2, column - 1, board, is_white, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 2, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 1, column + 2, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 1, column + 2, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 2, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 2, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row - 1, column - 2, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 1, column - 2, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+  examine_position(row + 2, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
   
   if checking {
     checking_path = Some(vec![]);
@@ -32,6 +33,7 @@ pub fn get_knight_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -
 
   return MoveData {
     position: origin,
+    valid_moves,
     attacks,
     defends,
     pins: vec![], // Knights cannot pin

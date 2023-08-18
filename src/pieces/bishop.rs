@@ -6,7 +6,8 @@ use crate::{
 };
 
 pub fn get_bishop_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
-  let mut attacks: Vec<Position> = vec![];              // Opposing pieces under attack by this piece
+  let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
+  let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
   let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
   let mut pins: Vec<Position> = vec![];                 // Opposing pieces pinned to the king
   let mut checking_path: Option<Vec<Position>> = None;  // Path taken to attack the opposing king, if possible
@@ -17,19 +18,20 @@ pub fn get_bishop_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -
   let column = origin.column as i8;
 
   // Check up-left
-  examine_line((1, -1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
+  examine_line((1, -1), row, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
   // Check up-right
-  examine_line((1, 1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
+  examine_line((1, 1), row, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
   // Check down-left
-  examine_line((-1, -1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
+  examine_line((-1, -1), row, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
   // Check down-right
-  examine_line((-1, 1), row, column, board, is_white, &mut attacks, &mut defends, &mut pins, &mut checking_path);
+  examine_line((-1, 1), row, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
   return MoveData {
     position: origin,
+    valid_moves,
     attacks,
     defends,
     pins,

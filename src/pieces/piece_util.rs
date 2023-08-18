@@ -9,7 +9,8 @@ pub mod piece_util {
    * The vectors passed into the function are updated with the calculated information.
    */
   pub fn examine_line(direction: (i8, i8), origin_row: i8, origin_column: i8, board: &Vec<Vec<Option<Piece>>>, is_white: bool, 
-                      moves: &mut Vec<Position>, defends: &mut Vec<Position>, pins: &mut Vec<Position>, checking_path: &mut Option<Vec<Position>>) {
+                      valid_moves: &mut Vec<Position>, attacks: &mut Vec<Position>, defends: &mut Vec<Position>, 
+                      pins: &mut Vec<Position>, checking_path: &mut Option<Vec<Position>>) {
 
     let mut current_path: Vec<Position> = vec![];
     let mut pinned: Option<Position> = None;
@@ -24,10 +25,10 @@ pub mod piece_util {
      * the examined position results in no more positions needing to be checked
      */
     while row >= 0 && column >= 0 && (row as usize) < board.len() && (column as usize) < board[row as usize].len() {
-      if examine_pinnable_position(row as usize, column as usize, board, is_white, moves, defends, &mut current_path, &mut pinned, &mut verified_pin, &mut checking) {
+      if examine_pinnable_position(row as usize, column as usize, board, is_white, valid_moves, attacks, defends, &mut current_path, &mut pinned, &mut verified_pin, &mut checking) {
         break;
       }
-      row = row + direction.0 ;
+      row = row + direction.0;
       column = column + direction.1;
     }
 
@@ -49,8 +50,8 @@ pub mod piece_util {
    * but the pinned option is already Some().
    */
   fn examine_pinnable_position(row:usize, column: usize, board: &Vec<Vec<Option<Piece>>>, is_white: bool,
-                          moves: &mut Vec<Position>, defends: &mut Vec<Position>, current_path: &mut Vec<Position>,
-                          pinned: &mut Option<Position>, verified_pin: &mut bool, checking: &mut bool) -> bool {
+                          valid_moves: &mut Vec<Position>, attacks: &mut Vec<Position>, defends: &mut Vec<Position>, 
+                          current_path: &mut Vec<Position>, pinned: &mut Option<Position>, verified_pin: &mut bool, checking: &mut bool) -> bool {
 
     match &board[row][column] {
       None => {
@@ -59,7 +60,8 @@ pub mod piece_util {
         * then update the vector of positions this piece can move to and the current path
         */
         if pinned.is_none() {
-          moves.push(Position {row, column});
+          valid_moves.push(Position {row, column});
+          attacks.push(Position {row, column});
           current_path.push(Position {row, column});
         }
         return false;
@@ -74,7 +76,8 @@ pub mod piece_util {
         } else { // Piece in this position is an enemy piece        
           // If pinned is None then this is the first opposing piece in the line
           if pinned.is_none() {
-            moves.push(Position {row, column});
+            valid_moves.push(Position {row, column});
+            attacks.push(Position {row, column});
             if chess_piece.is_king() {
               *checking = true;
               return true;
@@ -86,8 +89,9 @@ pub mod piece_util {
             // If this second piece is not the opposing king then it's not pinned (specifically to the king)
             if !chess_piece.is_king() {
               *pinned = None;
+            } else {
+              *verified_pin = true;
             }
-            *verified_pin = true;
             return true;
           }
         }
@@ -99,8 +103,8 @@ pub mod piece_util {
   /**
    * Examines a position on the board and updates the reference vectors accordingly.
    */
-  pub fn examine_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Piece>>>,
-                      is_white: bool, moves: &mut Vec<Position>, defends: &mut Vec<Position>, checking: &mut bool) {
+  pub fn examine_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Piece>>>, is_white: bool,
+                      valid_moves: &mut Vec<Position>, attacks: &mut Vec<Position>, defends: &mut Vec<Position>, checking: &mut bool) {
 
     let row= row_to_check as usize;
     let column= column_to_check as usize;
@@ -111,13 +115,15 @@ pub mod piece_util {
 
     match &board[row][column] {
       None => {
-        moves.push(Position {row, column});
+        valid_moves.push(Position {row, column});
+        attacks.push(Position {row, column});
       },
       Some(chess_piece) => {
         if is_white == chess_piece.is_white() { // Piece in this position is friendly
           defends.push(Position {row, column});
         } else { // Piece in this position is an enemy piece        
-          moves.push(Position {row, column});
+          valid_moves.push(Position {row, column});
+          attacks.push(Position {row, column});
           if chess_piece.is_king() {
             *checking = true;
           }

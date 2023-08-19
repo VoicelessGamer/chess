@@ -60,6 +60,14 @@ impl Controller for IOController {
 /**
  * A function to retrieve the input of the next move from the terminal input.
  * Loops on the input string until it is valid
+ * Scholars mate:
+ *  4,1,4,3   pawn e4   (w)
+ *  4,6,4,4   pawn e5   (b)
+ *  5,0,2,3   bishop c4 (w)
+ *  1,7,2,5   kngiht c6 (b)
+ *  3,0,7,4   queen h5  (w)
+ *  6,7,5,5   knight f6 (b)
+ *  7,4,5,6   queen f7  (w) *checkmate*
  */
 fn get_move_input() -> PlayerMove {
   loop {

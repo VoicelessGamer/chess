@@ -11,6 +11,7 @@ use crate::{
   move_data::MoveData
 };
 
+#[derive(Clone, Debug)]
 pub enum GameState {
   Active,
   BlackWin,
@@ -19,12 +20,13 @@ pub enum GameState {
   Error
 }
 
-struct State {
-  white_turn: bool, // true if it is currently white's turn
-  game_state: GameState, // Current state of play
-  _white_castle: bool, // Whether white can still castle
-  _black_castle: bool, // Whether black can still castle
-  in_check: bool // Whether the current player's king is in check (updated for the next player after each move)
+#[derive(Clone)]
+pub struct State {
+  pub white_turn: bool, // true if it is currently white's turn
+  pub game_state: GameState, // Current state of play
+  pub _white_castle: bool, // Whether white can still castle
+  pub _black_castle: bool, // Whether black can still castle
+  pub in_check: bool // Whether the current player's king is in check (updated for the next player after each move)
 }
 
 pub struct Game<C: Controller, V: View> {
@@ -55,14 +57,6 @@ impl<C: Controller, V: View> Game<C, V> {
   }
 
   /**
-   * Returns the current state of the game
-   */
-  #[allow(dead_code)]
-  pub fn get_state(&self) -> &GameState {
-    return &self.state.game_state;
-  }
-
-  /**
    * This is the entrypoint for the main logic of the game. Once called, this
    * function will process the moves provided by the controller, handle validation
    * and update the view with the changes to the board.
@@ -71,7 +65,7 @@ impl<C: Controller, V: View> Game<C, V> {
     // Initialise the view for the players
     let mut current_board = self.board.get_current_board();
 
-    self.view.update_state(&current_board);
+    self.view.update_state(&current_board, self.state.clone());
     
     // Loop the turn based logic until there is an outcome for the game
     while let GameState::Active = self.state.game_state {
@@ -91,11 +85,12 @@ impl<C: Controller, V: View> Game<C, V> {
 
         // Evaluate the new board and update the game state
         self.update_game_state(&current_board);
-  
-        self.view.update_state(&current_board);
 
         // Swap the active player
         self.state.white_turn = !self.state.white_turn;
+  
+        // Update the player's views
+        self.view.update_state(&current_board, self.state.clone());
       }
     }
   }
@@ -253,8 +248,11 @@ impl<C: Controller, V: View> Game<C, V> {
         // Determine a standard piece can block the check or capture the checker
         if !one_checker_valid_defend && checking_pieces.len() == 1 {
           let checking_piece = &checking_pieces[0];
-          let position = &checking_piece.position;
           let checking_path = checking_piece.checking_path.as_ref().unwrap(); // Checking pieces should always have Some(checking_path)
+          if checking_path.is_empty() {
+            continue;
+          }
+          let position = &checking_piece.position;
           // Checking all the valid move positions by the opposing piece
           for attacked_position in &move_data.valid_moves {
             // If the checking piece can be captured 
@@ -271,7 +269,7 @@ impl<C: Controller, V: View> Game<C, V> {
     let mut king_valid_moves = vec![];
     for position in &opposing_king.as_ref().unwrap().valid_moves {
       // Adding the valid moves (non defended positions) to a separate vec
-      if !attacked_positions.contains(position) && attacked_positions.contains(position) || defended_player_pieces.contains(position) {
+      if !attacked_positions.contains(position) && !defended_player_pieces.contains(position) {
         king_valid_moves.push(position.clone());
         opponent_can_move = true;
       }
@@ -295,6 +293,7 @@ impl<C: Controller, V: View> Game<C, V> {
         self.state.in_check = player_check;
         self.state.game_state = GameState::BlackWin;
       }
+      return;
     }
 
     self.state.in_check = player_check;

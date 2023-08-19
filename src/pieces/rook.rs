@@ -5,7 +5,7 @@ use crate::{
   pieces::piece_util::piece_util::examine_line
 };
 
-pub fn get_rook_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+pub fn get_rook_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
   let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
   let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
   let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
@@ -30,7 +30,7 @@ pub fn get_rook_move_data(origin: Position, board: &Vec<Vec<Option<Piece>>>) -> 
   examine_line((0, 1), row, column, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut pins, &mut checking_path);
 
   return MoveData {
-    position: origin,
+    position: origin.clone(),
     valid_moves,
     attacks,
     defends,
@@ -60,7 +60,8 @@ mod rook_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = get_rook_move_data(Position {row: 2, column: 4}, &current_board);
+    let pos = Position {row: 2, column: 4};
+    let move_data = get_rook_move_data(&pos, &current_board);
 
     assert_eq!(move_data.position, Position {row: 2, column: 4});
 
@@ -97,7 +98,8 @@ mod rook_tests {
     let mut board = Board::new(&board_config);
     let current_board = board.get_current_board();
 
-    let move_data = get_rook_move_data(Position {row: 2, column: 0}, &current_board);
+    let pos = Position {row: 2, column: 0};
+    let move_data = get_rook_move_data(&pos, &current_board);
 
     assert!(move_data.checking_path.is_some());
 

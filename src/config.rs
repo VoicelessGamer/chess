@@ -13,7 +13,9 @@ pub struct BoardConfig {
 
 pub struct GameConfig {
   pub initial_board: BoardConfig,
-  pub white_castle: bool, // Whether white can castle
-  pub black_castle: bool, // Whether black can castle
+  pub white_long_castle: bool, // Whether white can long castle
+  pub white_short_castle: bool, // Whether white can short castle
+  pub black_long_castle: bool, // Whether black can long castle
+  pub black_short_castle: bool, // Whether black can short castle
   pub white_turn: bool
 }

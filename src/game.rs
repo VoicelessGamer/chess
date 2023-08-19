@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::{
   controller::Controller,
@@ -24,9 +25,21 @@ pub enum GameState {
 pub struct State {
   pub white_turn: bool, // true if it is currently white's turn
   pub game_state: GameState, // Current state of play
-  pub _white_castle: bool, // Whether white can still castle
-  pub _black_castle: bool, // Whether black can still castle
-  pub in_check: bool // Whether the current player's king is in check (updated for the next player after each move)
+  pub white_long_castle: bool, // Whether white can still long castle
+  pub white_short_castle: bool, // Whether white can still short castle
+  pub black_long_castle: bool, // Whether black can still long castle
+  pub black_short_castle: bool, // Whether black can still short castle
+  pub in_check: bool, // Whether the current player's king is in check (updated for the next player after each move)
+  pub valid_moves: HashMap<Position, Vec<Position>>
+}
+
+impl State {
+  fn check_long_castle(&self) -> bool {
+    return (self.white_turn && self.black_long_castle) || (!self.white_turn && self.white_long_castle);
+  }
+  fn check_short_castle(&self) -> bool {
+    return (self.white_turn && self.black_short_castle) || (!self.white_turn && self.white_short_castle);
+  }
 }
 
 pub struct Game<C: Controller, V: View> {
@@ -49,9 +62,12 @@ impl<C: Controller, V: View> Game<C, V> {
       state: State{
         white_turn: game_config.white_turn,
         game_state: GameState::Active,
-        _white_castle: game_config.white_castle,
-        _black_castle: game_config.black_castle,
-        in_check: false
+        white_long_castle: game_config.white_long_castle,
+        white_short_castle: game_config.white_short_castle,
+        black_long_castle: game_config.black_long_castle,
+        black_short_castle: game_config.black_short_castle,
+        in_check: false,
+        valid_moves: HashMap::new()
       }
     }
   }
@@ -65,21 +81,24 @@ impl<C: Controller, V: View> Game<C, V> {
     // Initialise the view for the players
     let mut current_board = self.board.get_current_board();
 
+    // Evaluate the starting board and update the game state with initial values
+    self.state.white_turn = !self.state.white_turn; // Need to be on opposite turn for the update to get correct moves
+    self.update_game_state(&current_board);
+    self.state.white_turn = !self.state.white_turn; // TODO: This reset needs looking at
+
     self.view.update_state(&current_board, self.state.clone());
     
     // Loop the turn based logic until there is an outcome for the game
     while let GameState::Active = self.state.game_state {
       let player_move = self.controller.get_move(self.state.white_turn);
 
-      /*
-       * Validate the chosen move
-       * NOTE: the board is taken as a mutable reference here as it is not read
-       * from again until the move has been performed. This has been done so 
-       * that a second copy of the board does not need to be made.
-       */
-      let is_valid = self.validate_move(&player_move, &mut current_board);
+      // Validate the chosen move
+      let is_valid = self.validate_move(&player_move);
 
       if is_valid {
+        // Check move to update the castling options, if needed
+        self.update_castling_options(&player_move, &current_board);
+
         // The move is valid, make the move on the board and update the players with the current board state
         current_board = self.board.move_piece(player_move.current, player_move.target);
 
@@ -96,75 +115,55 @@ impl<C: Controller, V: View> Game<C, V> {
   }
 
   /**
-   * Validate the player move against the current board using standard chess 
-   * rules. Returns true if the move can be made.
-   * 
-   * NOTE: This function takes a mutable reference to the board so that
-   * validations can be performed in the modified position. Any reference
-   * to the supplied board after this function call will be referencing a
-   * modified board.
+   * Validate the player move against the list of calculated valid moves in the game state. 
+   * Returns true if the move can be made.
    */
-  fn validate_move(&self, player_move: &PlayerMove, board: &mut Vec<Vec<Option<Piece>>>) -> bool {
-    // Check the chosen piece exists and is not an empty space on the board
-    let current_piece = match &board[player_move.current.row][player_move.current.column] {
-      None => return false,
-      Some(piece) => piece
-    };
-
-    // Check the chosen piece belongs to the current active player
-    if (self.state.white_turn && !current_piece.is_white()) ||
-        (!self.state.white_turn && current_piece.is_white()) {
-      return false;
-    }
-
-    // Check the target position is a valid position for that piece
-    let pos = Position { row: player_move.current.row, column: player_move.current.column };
-    if !get_move_data(pos, board).valid_moves.contains(&player_move.target) {
-      return false;
-    }
-
-    // Modify the board to represent the board after the move, so that check validations can be performed
-    let chess_piece = board[player_move.current.row][player_move.current.column].take();
-    board[player_move.current.row][player_move.current.column] = None;
-    board[player_move.target.row][player_move.target.column] = chess_piece;
-
-    // Check if the move would cause the active player's king to be under attack
-    // This also resolves the check for if this move would resolve any existing check
-    let mut is_checking: bool = false;
-    'outer:  for i in 0..board.len() {
-      let row = &board[i];
-      for j in 0..row.len() {
-        let piece = &row[j];
-        is_checking = match piece {
-          None => false,
-          Some(chess_piece) => {
-            if (self.state.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
-                (!self.state.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
-
-              let position = Position {row: i, column: j};
-              let move_data = get_move_data(position, board);
-
-              if move_data.checking_path.is_some() {
-                true
-              } else {
-                false
-              }
-            } else {
-              false
-            }
-          }
-        };
-        if is_checking {
-          break 'outer;
-        }
+  fn validate_move(&self, player_move: &PlayerMove) -> bool {
+    if let Some(valid_positions) = self.state.valid_moves.get(&player_move.current) {
+      if valid_positions.contains(&player_move.target) {
+        return true;
       }
     }
+    return false;
+  }
 
-    if is_checking {
-      return false;
+  /**
+   * Checks if a move involves the king or rooks and updates the castling options for the player if it does.
+   * The supplied board should be the state of the board before the piece has been moved.
+   */
+  fn update_castling_options(&mut self, player_move: &PlayerMove, board: &Vec<Vec<Option<Piece>>>) {
+    match board[player_move.current.row][player_move.current.column].as_ref().unwrap() {
+      Piece::Rook(_) => {
+        if self.state.white_turn {
+          if self.state.white_long_castle && player_move.current.column == 0 {
+            // White's turn, white has not yet castled, this moved rook is on the 1st File/column
+            self.state.white_long_castle = false;
+          } else if self.state.white_short_castle && player_move.current.column == 0 {
+            // White's turn, white has not yet castled, this moved rook is on the 8th File/column
+            self.state.white_short_castle = false;
+          }
+        } else {
+          if self.state.black_long_castle && player_move.current.column == 0 {
+            // Black's turn, black has not yet castled, this moved rook is on the 1st File/column
+            self.state.black_long_castle = false;
+          } else if self.state.black_short_castle && player_move.current.column == 0 {
+            // Black's turn, black has not yet castled, this moved rook is on the 8th File/column
+            self.state.black_short_castle = false;
+          }
+        }
+      },
+      Piece::King(_) => {
+        // As soon as king has move, regardless of if it was a castling move, castling is no longer available
+        if self.state.white_turn {
+          self.state.white_long_castle = false;
+          self.state.white_short_castle = false;
+        } else {
+          self.state.black_long_castle = false;
+          self.state.black_short_castle = false;
+        }
+      },
+      _ => return
     }
-
-    return true;
   }
 
   /**
@@ -193,7 +192,7 @@ impl<C: Controller, V: View> Game<C, V> {
           None => continue,
           Some(chess_piece) => {
             let position = Position {row: i, column: j};
-            let move_data = get_move_data(position, board);
+            let move_data = self.get_move_data(&position, board);
 
             if (self.state.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
                 (!self.state.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
@@ -221,8 +220,6 @@ impl<C: Controller, V: View> Game<C, V> {
       }
     }
 
-    // TODO: Need to sort out returning the opponents valid moves
-
     // If the opposing king was not found or if there is more than one checking piece then there has been an error in gameplay/logic, cannot continue
     if opposing_king.is_none() || checking_pieces.len() > 2 {
       self.state.in_check = player_check;
@@ -239,28 +236,32 @@ impl<C: Controller, V: View> Game<C, V> {
     let mut one_checker_valid_defend = false; // Used to determine if the opponent has a standard piece that can take or block a single checking piece
 
     // For all opposing pieces that are pinned by current player, wipe the valid moves
-    for mut move_data in opposing_move_data {
-      if pinned_positions.contains(&move_data.position) {
+    let num_checking_pieces = checking_pieces.len();
+    for mut move_data in opposing_move_data.as_mut_slice() {
+      if pinned_positions.contains(&move_data.position) || num_checking_pieces > 1 {
         move_data.valid_moves = vec![];
       } else {
         opponent_can_move = true;
 
         // Determine a standard piece can block the check or capture the checker
-        if !one_checker_valid_defend && checking_pieces.len() == 1 {
+        if num_checking_pieces == 1 {
           let checking_piece = &checking_pieces[0];
           let checking_path = checking_piece.checking_path.as_ref().unwrap(); // Checking pieces should always have Some(checking_path)
-          if checking_path.is_empty() {
-            continue;
-          }
+          
           let position = &checking_piece.position;
+
+          let mut valid_moves = vec![];
           // Checking all the valid move positions by the opposing piece
           for attacked_position in &move_data.valid_moves {
             // If the checking piece can be captured 
             if attacked_position == position || checking_path.contains(attacked_position) {
               one_checker_valid_defend = true;
-              break;
+              valid_moves.push(attacked_position.to_owned());
             }
           }
+
+          // Overwriting the piece's moves with the only valid move options
+          move_data.valid_moves = valid_moves;
         }
       }
     }
@@ -275,16 +276,53 @@ impl<C: Controller, V: View> Game<C, V> {
       }
     }
     // Overwriting the kings valid moves
-    opposing_king.as_mut().unwrap().valid_moves = king_valid_moves;
+    let op_king = opposing_king.as_mut().unwrap();
+    op_king.valid_moves = king_valid_moves;
+    
+    // Check whether the opponent's castling options are valid
+    let king_position = &op_king.position;
+    // Check long castle option
+    if self.state.check_long_castle() {
+      let long_castle_valid = pieces::king::is_king_long_castle_valid(king_position, board, &attacked_positions); // Whether the opposing king can long castle
+      // If valid, add long castle move to king's valid moves
+      if long_castle_valid {
+        op_king.valid_moves.push(Position {row: king_position.row, column: 2});
+      }
+    }
+    // Check short castle option
+    if self.state.check_short_castle() {
+      let short_castle_valid = pieces::king::is_king_short_castle_valid(king_position, board, &attacked_positions); // Whether the opposing king can short castle
+      // If valid, add short castle move to king's valid moves
+      if short_castle_valid {
+        op_king.valid_moves.push(Position {row: king_position.row, column: 6});
+      }
+    }
 
-    // TODO: Gather all valid moves for the opponent here, set in state
+    // Used in final game state checks
+    let king_no_moves = op_king.valid_moves.is_empty();
+
+    // Gather all valid moves for the opponent and set in game state
+    // These moves will be used to validate the next input from the player
+    let mut valid_moves = HashMap::new();
+    // Add all the valid standard piece moves
+    for move_data in opposing_move_data {
+      if !move_data.valid_moves.is_empty() {
+        valid_moves.insert(move_data.position, move_data.valid_moves);
+      }
+    }
+    // Add all the king valid moves
+    let op_king = opposing_king.unwrap();
+    valid_moves.insert(op_king.position, op_king.valid_moves);
+
+    // Set the valid moves in the game state
+    self.state.valid_moves = valid_moves;
 
     // If not check and no opposing piece has a valid move then stalemate
     if !player_check && !opponent_can_move {
       self.state.in_check = player_check;
       self.state.game_state = GameState::Stalemate;
       return;
-    } else if player_check && opposing_king.as_ref().unwrap().valid_moves.is_empty() && !one_checker_valid_defend {
+    } else if player_check && king_no_moves && !one_checker_valid_defend {
       // Opposing player in checkmate, change state to end game
       if self.state.white_turn {
         self.state.in_check = player_check;
@@ -300,23 +338,24 @@ impl<C: Controller, V: View> Game<C, V> {
     self.state.game_state = GameState::Active;
     return;
   }
-}
 
-/**
- * Get the relevant move data based on the Piece type in the given position
- */
-fn get_move_data(position: Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
-  match &board[position.row][position.column] {
-    Some(piece) => {
-      match piece {
-        Piece::Bishop(_) => pieces::bishop::get_bishop_move_data(position, board),
-        Piece::King(_) => pieces::king::get_king_move_data(position, board),
-        Piece::Knight(_) => pieces::knight::get_knight_move_data(position, board),
-        Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board),
-        Piece::Queen(_) => pieces::queen::get_queen_move_data(position, board),
-        Piece::Rook(_) => pieces::rook::get_rook_move_data(position, board),
+  /**
+   * Get the relevant move data based on the Piece type in the given position
+   */
+  fn get_move_data(&self, position: &Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+    match &board[position.row][position.column] {
+      Some(piece) => {
+        match piece {
+          Piece::Bishop(_) => pieces::bishop::get_bishop_move_data(position, board),
+          Piece::Knight(_) => pieces::knight::get_knight_move_data(position, board),
+          Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board),
+          Piece::Queen(_) => pieces::queen::get_queen_move_data(position, board),
+          Piece::Rook(_) => pieces::rook::get_rook_move_data(position, board),
+          Piece::King(_) => pieces::king::get_king_move_data(position, board)
+        }
+      },
+      None => todo!(),
     }
-    },
-    None => todo!(),
   }
 }
+

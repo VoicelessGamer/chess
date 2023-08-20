@@ -88,7 +88,7 @@ fn _test_default_config() -> config::GameConfig {
 fn test_simple_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
-      PieceConfig {piece: String::from("rook"), white: true, column: 2, row: 5},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 5},
       PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
 
       PieceConfig {piece: String::from("rook"), white: false, column: 0, row: 7},

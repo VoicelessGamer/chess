@@ -99,8 +99,17 @@ impl<C: Controller, V: View> Game<C, V> {
         // Check move to update the castling options, if needed
         self.update_castling_options(&player_move, &current_board);
 
+        // Checks if the move made was a castling move and retrieves the rook move if it was
+        let castle_move = self.get_castle_move(&player_move, &current_board);
+
         // The move is valid, make the move on the board and update the players with the current board state
         current_board = self.board.move_piece(player_move.current, player_move.target);
+
+        // If this was a castling move then move the Rook piece as well
+        if castle_move.is_some() {
+          let c_move = castle_move.unwrap();
+          current_board = self.board.move_piece(c_move.current, c_move.target);
+        }
 
         // Evaluate the new board and update the game state
         self.update_game_state(&current_board);
@@ -138,7 +147,7 @@ impl<C: Controller, V: View> Game<C, V> {
           if self.state.white_long_castle && player_move.current.column == 0 {
             // White's turn, white has not yet castled, this moved rook is on the 1st File/column
             self.state.white_long_castle = false;
-          } else if self.state.white_short_castle && player_move.current.column == 0 {
+          } else if self.state.white_short_castle && player_move.current.column == 7 {
             // White's turn, white has not yet castled, this moved rook is on the 8th File/column
             self.state.white_short_castle = false;
           }
@@ -146,7 +155,7 @@ impl<C: Controller, V: View> Game<C, V> {
           if self.state.black_long_castle && player_move.current.column == 0 {
             // Black's turn, black has not yet castled, this moved rook is on the 1st File/column
             self.state.black_long_castle = false;
-          } else if self.state.black_short_castle && player_move.current.column == 0 {
+          } else if self.state.black_short_castle && player_move.current.column == 7 {
             // Black's turn, black has not yet castled, this moved rook is on the 8th File/column
             self.state.black_short_castle = false;
           }
@@ -163,6 +172,33 @@ impl<C: Controller, V: View> Game<C, V> {
         }
       },
       _ => return
+    }
+  }
+
+  /**
+   * Checks the player's move to see if it was a castling move (king moving 2 spaces).
+   * If it was a castling move then the move for the Rook is returned.
+   * This assumes that the move has already been validated.
+   */
+  fn get_castle_move(&self, player_move: &PlayerMove, board: &Vec<Vec<Option<Piece>>>) -> Option<PlayerMove> {
+    let column = player_move.current.column;
+    let target_column = player_move.target.column;
+    let row = player_move.current.row;
+
+    match board[row][column].as_ref().unwrap() {
+      Piece::King(_) => {
+        if target_column > column && target_column - column == 2 {
+          // King-side castling move
+          return Some(PlayerMove {current: Position {row, column: 7}, target: Position {row, column: 5}});
+        } else if column > target_column && column - target_column == 2 {
+          // Queen-side castling move
+          return Some(PlayerMove {current: Position {row, column: 0}, target: Position {row, column: 3}});
+        } else {
+          // Not a castling move
+          return None
+        }
+      },
+      _ => return None
     }
   }
 

@@ -1,6 +1,7 @@
 use crate::position::Position;
 
-pub struct PlayerMove {
+#[derive(Clone)]
+pub struct PieceMove {
   pub current: Position,
   pub target: Position
 }

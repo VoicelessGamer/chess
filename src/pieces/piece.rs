@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Piece {
   Bishop(bool),
   King(bool),

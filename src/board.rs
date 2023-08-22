@@ -2,6 +2,7 @@ use crate::pieces::piece::Piece;
 use crate::config::*;
 use crate::position::Position;
 
+#[derive(Clone)]
 pub struct Board {
   board: Vec<Vec<Option<Piece>>>
 }
@@ -31,7 +32,7 @@ impl Board {
   /**
    * Function call to place a given piece at a given position
    */
-  pub fn move_piece(&mut self, current_position: Position, new_position: Position) -> Vec<Vec<Option<Piece>>> {
+  pub fn move_piece(&mut self, current_position: &Position, new_position: &Position) -> Vec<Vec<Option<Piece>>> {
     let chess_piece = self.board[current_position.row][current_position.column].take();
     self.board[current_position.row][current_position.column] = None;
     self.board[new_position.row][new_position.column] = chess_piece;
@@ -43,10 +44,6 @@ impl Board {
    * Returns a copy of the current state of the board pieces
    */
   pub fn get_current_board(&mut self) -> Vec<Vec<Option<Piece>>> {
-    self.board.iter().map(|row| {
-      row.iter().map(|col| {
-          col.as_ref().map(|piece| piece.clone())
-      }).collect()
-    }).collect()
+    return self.board.clone();
   }
 }

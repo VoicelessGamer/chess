@@ -2,12 +2,13 @@ mod controller;
 mod io_controller;
 mod view;
 mod io_view;
+mod move_logger;
 mod game;
 mod board;
 mod config;
 mod pieces;
 mod move_data;
-mod player_move;
+mod piece_move;
 mod position;
 
 use crate::io_controller::IOController;
@@ -22,7 +23,7 @@ fn main() {
   let mut game = Game::new(
     IOController::new(true, true),
     IOView {use_unicode: true},
-    test_simple_config()
+    test_default_config()
   );
 
   game.run();
@@ -31,7 +32,7 @@ fn main() {
 /**
  * Test function. This will be moved at a later date to come from config files
  */
-fn _test_default_config() -> config::GameConfig {
+fn test_default_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
       PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 1},
@@ -85,7 +86,7 @@ fn _test_default_config() -> config::GameConfig {
 /**
  * Test function. This will be moved at a later date to come from config files
  */
-fn test_simple_config() -> config::GameConfig {
+fn _test_simple_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
       PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 5},

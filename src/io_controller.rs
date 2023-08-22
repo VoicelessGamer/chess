@@ -3,7 +3,7 @@ use std::io;
 use crate::{
   controller::Controller,
   position::Position, 
-  player_move::PlayerMove
+  piece_move::PieceMove
 };
 
 pub struct IOController {
@@ -23,7 +23,7 @@ impl IOController {
   /**
    * Retrieves the next move for white 
    */
-  fn get_white_move(&self) -> PlayerMove {
+  fn get_white_move(&self) -> PieceMove {
     if self.white_human {
       return get_move_input();
     } else {
@@ -34,7 +34,7 @@ impl IOController {
   /**
    * Retrieves the next move for black 
    */
-  fn get_black_move(&self) -> PlayerMove {
+  fn get_black_move(&self) -> PieceMove {
     if self.black_human {
       return get_move_input();
     } else {
@@ -48,7 +48,7 @@ impl Controller for IOController {
    * Retrieves the next chosen move from the white or black player based on
    * the provided white_turn bool parameter
    */
-  fn get_move(&self, white_turn: bool) -> PlayerMove {
+  fn get_move(&self, white_turn: bool) -> PieceMove {
     if white_turn {
       return self.get_white_move();
     } else {
@@ -69,7 +69,7 @@ impl Controller for IOController {
  *  6,7,5,5   knight f6 (b)
  *  7,4,5,6   queen f7  (w) *checkmate*
  */
-fn get_move_input() -> PlayerMove {
+fn get_move_input() -> PieceMove {
   loop {
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
@@ -80,7 +80,7 @@ fn get_move_input() -> PlayerMove {
 
     let split: Vec<&str> = input.split(",").collect();
     if split.len() == 4 {
-      return PlayerMove {
+      return PieceMove {
         current: Position {
           row: split[1].parse::<usize>().unwrap(), 
           column: split[0].parse::<usize>().unwrap()

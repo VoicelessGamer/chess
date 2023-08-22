@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 use std::collections::HashMap;
 
+use crate::move_logger::MoveLogger;
 use crate::{
   controller::Controller,
   view::View,
   board::Board,
   config::*,
-  player_move::PlayerMove,
+  piece_move::PieceMove,
   position::Position, 
   pieces::{piece::*, self},
   move_data::MoveData
@@ -30,7 +31,8 @@ pub struct State {
   pub black_long_castle: bool, // Whether black can still long castle
   pub black_short_castle: bool, // Whether black can still short castle
   pub in_check: bool, // Whether the current player's king is in check (updated for the next player after each move)
-  pub valid_moves: HashMap<Position, Vec<Position>>
+  pub valid_moves: HashMap<Position, Vec<Position>>,
+  pub last_move: Option<PieceMove>
 }
 
 impl State {
@@ -45,6 +47,7 @@ impl State {
 pub struct Game<C: Controller, V: View> {
   controller: C,
   view: V,
+  move_logger: MoveLogger,
   board: Board,
   state: State, // Holds the current state of the game
 }
@@ -55,11 +58,13 @@ impl<C: Controller, V: View> Game<C, V> {
    */
   pub fn new(controller: C, view: V, game_config: GameConfig) -> Self {
     // TODO: Add validation of the game config, checking for position boundaries single king per side
+    let mut board = Board::new(&game_config.initial_board);
     Self {
       controller,
       view,
-      board: Board::new(&game_config.initial_board),
-      state: State{
+      move_logger: MoveLogger::new(board.get_current_board()),
+      board,
+      state: State {
         white_turn: game_config.white_turn,
         game_state: GameState::Active,
         white_long_castle: game_config.white_long_castle,
@@ -67,7 +72,8 @@ impl<C: Controller, V: View> Game<C, V> {
         black_long_castle: game_config.black_long_castle,
         black_short_castle: game_config.black_short_castle,
         in_check: false,
-        valid_moves: HashMap::new()
+        valid_moves: HashMap::new(),
+        last_move: None
       }
     }
   }
@@ -90,32 +96,34 @@ impl<C: Controller, V: View> Game<C, V> {
     
     // Loop the turn based logic until there is an outcome for the game
     while let GameState::Active = self.state.game_state {
-      let player_move = self.controller.get_move(self.state.white_turn);
+      let piece_move = self.controller.get_move(self.state.white_turn);
 
       // Validate the chosen move
-      let is_valid = self.validate_move(&player_move);
+      let is_valid = self.validate_move(&piece_move);
 
       if is_valid {
         // Check move to update the castling options, if needed
-        self.update_castling_options(&player_move, &current_board);
+        self.update_castling_options(&piece_move, &current_board);
 
         // Checks if the move made was a castling move and retrieves the rook move if it was
-        let castle_move = self.get_castle_move(&player_move, &current_board);
+        let castle_move = self.get_castle_move(&piece_move, &current_board);
 
         // The move is valid, make the move on the board and update the players with the current board state
-        current_board = self.board.move_piece(player_move.current, player_move.target);
+        current_board = self.board.move_piece(&piece_move.current, &piece_move.target);
 
         // If this was a castling move then move the Rook piece as well
         if castle_move.is_some() {
           let c_move = castle_move.unwrap();
-          current_board = self.board.move_piece(c_move.current, c_move.target);
+          current_board = self.board.move_piece(&c_move.current, &c_move.target);
         }
 
         // Evaluate the new board and update the game state
         self.update_game_state(&current_board);
 
-        // Swap the active player
+        // Swap the active player and update last move
         self.state.white_turn = !self.state.white_turn;
+        self.state.last_move = Some(piece_move.clone());
+        self.move_logger.add_move(piece_move, &current_board, &self.state);
   
         // Update the player's views
         self.view.update_state(&current_board, self.state.clone());
@@ -127,9 +135,9 @@ impl<C: Controller, V: View> Game<C, V> {
    * Validate the player move against the list of calculated valid moves in the game state. 
    * Returns true if the move can be made.
    */
-  fn validate_move(&self, player_move: &PlayerMove) -> bool {
-    if let Some(valid_positions) = self.state.valid_moves.get(&player_move.current) {
-      if valid_positions.contains(&player_move.target) {
+  fn validate_move(&self, piece_move: &PieceMove) -> bool {
+    if let Some(valid_positions) = self.state.valid_moves.get(&piece_move.current) {
+      if valid_positions.contains(&piece_move.target) {
         return true;
       }
     }
@@ -140,22 +148,22 @@ impl<C: Controller, V: View> Game<C, V> {
    * Checks if a move involves the king or rooks and updates the castling options for the player if it does.
    * The supplied board should be the state of the board before the piece has been moved.
    */
-  fn update_castling_options(&mut self, player_move: &PlayerMove, board: &Vec<Vec<Option<Piece>>>) {
-    match board[player_move.current.row][player_move.current.column].as_ref().unwrap() {
+  fn update_castling_options(&mut self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) {
+    match board[piece_move.current.row][piece_move.current.column].as_ref().unwrap() {
       Piece::Rook(_) => {
         if self.state.white_turn {
-          if self.state.white_long_castle && player_move.current.column == 0 {
+          if self.state.white_long_castle && piece_move.current.column == 0 {
             // White's turn, white has not yet castled, this moved rook is on the 1st File/column
             self.state.white_long_castle = false;
-          } else if self.state.white_short_castle && player_move.current.column == 7 {
+          } else if self.state.white_short_castle && piece_move.current.column == 7 {
             // White's turn, white has not yet castled, this moved rook is on the 8th File/column
             self.state.white_short_castle = false;
           }
         } else {
-          if self.state.black_long_castle && player_move.current.column == 0 {
+          if self.state.black_long_castle && piece_move.current.column == 0 {
             // Black's turn, black has not yet castled, this moved rook is on the 1st File/column
             self.state.black_long_castle = false;
-          } else if self.state.black_short_castle && player_move.current.column == 7 {
+          } else if self.state.black_short_castle && piece_move.current.column == 7 {
             // Black's turn, black has not yet castled, this moved rook is on the 8th File/column
             self.state.black_short_castle = false;
           }
@@ -180,19 +188,19 @@ impl<C: Controller, V: View> Game<C, V> {
    * If it was a castling move then the move for the Rook is returned.
    * This assumes that the move has already been validated.
    */
-  fn get_castle_move(&self, player_move: &PlayerMove, board: &Vec<Vec<Option<Piece>>>) -> Option<PlayerMove> {
-    let column = player_move.current.column;
-    let target_column = player_move.target.column;
-    let row = player_move.current.row;
+  fn get_castle_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<PieceMove> {
+    let column = piece_move.current.column;
+    let target_column = piece_move.target.column;
+    let row = piece_move.current.row;
 
     match board[row][column].as_ref().unwrap() {
       Piece::King(_) => {
         if target_column > column && target_column - column == 2 {
           // King-side castling move
-          return Some(PlayerMove {current: Position {row, column: 7}, target: Position {row, column: 5}});
+          return Some(PieceMove {current: Position {row, column: 7}, target: Position {row, column: 5}});
         } else if column > target_column && column - target_column == 2 {
           // Queen-side castling move
-          return Some(PlayerMove {current: Position {row, column: 0}, target: Position {row, column: 3}});
+          return Some(PieceMove {current: Position {row, column: 0}, target: Position {row, column: 3}});
         } else {
           // Not a castling move
           return None

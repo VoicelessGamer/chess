@@ -108,6 +108,9 @@ impl<C: Controller, V: View> Game<C, V> {
         // Checks if the move made was a castling move and retrieves the rook move if it was
         let castle_move = self.get_castle_move(&piece_move, &current_board);
 
+        // Checks if the move made was a en passant move and retrieves the taken piece if it was
+        let en_passant_move = self.get_en_passant_move(&piece_move, &current_board);
+
         // The move is valid, make the move on the board and update the players with the current board state
         current_board = self.board.move_piece(&piece_move.current, &piece_move.target);
 
@@ -115,15 +118,21 @@ impl<C: Controller, V: View> Game<C, V> {
         if castle_move.is_some() {
           let c_move = castle_move.unwrap();
           current_board = self.board.move_piece(&c_move.current, &c_move.target);
+        } else if en_passant_move.is_some() {
+          // If this was an en passant move then remove the taken piece
+          let ep_move = en_passant_move.unwrap();
+          current_board = self.board.clear_position(&ep_move);
         }
+
+        // Update the move log
+        self.move_logger.add_move(piece_move.clone(), &current_board, &self.state);
+        self.state.last_move = Some(piece_move);
 
         // Evaluate the new board and update the game state
         self.update_game_state(&current_board);
 
-        // Swap the active player and update last move
+        // Swap the active player
         self.state.white_turn = !self.state.white_turn;
-        self.state.last_move = Some(piece_move.clone());
-        self.move_logger.add_move(piece_move, &current_board, &self.state);
   
         // Update the player's views
         self.view.update_state(&current_board, self.state.clone());
@@ -208,6 +217,17 @@ impl<C: Controller, V: View> Game<C, V> {
       },
       _ => return None
     }
+  }
+
+  /**
+   * Checking if a given move was an en passant move and returning the position of the taken piece if it was
+   */
+  fn get_en_passant_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<Position> {
+    // If the pawn changed File and the target position currently does not contain a piece then it can only be en passant
+    if piece_move.target.column != piece_move.current.column && board[piece_move.target.row][piece_move.target.column].is_none() {
+      return Some(Position {row: piece_move.current.row, column: piece_move.target.column});
+    }
+    None
   }
 
   /**
@@ -392,7 +412,7 @@ impl<C: Controller, V: View> Game<C, V> {
         match piece {
           Piece::Bishop(_) => pieces::bishop::get_bishop_move_data(position, board),
           Piece::Knight(_) => pieces::knight::get_knight_move_data(position, board),
-          Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board),
+          Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board, &self.state.last_move),
           Piece::Queen(_) => pieces::queen::get_queen_move_data(position, board),
           Piece::Rook(_) => pieces::rook::get_rook_move_data(position, board),
           Piece::King(_) => pieces::king::get_king_move_data(position, board)

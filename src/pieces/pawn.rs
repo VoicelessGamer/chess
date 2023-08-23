@@ -1,10 +1,11 @@
 use crate::{
   pieces::piece::Piece, 
   position::Position,
-  move_data::MoveData
+  move_data::MoveData, 
+  piece_move::PieceMove
 };
 
-pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
+pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>, last_move: &Option<PieceMove>) -> MoveData {
   let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
   let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
   let mut defends: Vec<Position> = vec![];              // Friendly pieces defended by this piece
@@ -13,11 +14,10 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) ->
 
   let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
 
-  let row = origin.row as i8;
+  let row = origin.row as i8; // TODO: don't need to cast
   let column = origin.column as i8;
 
   // Pawn attack direction is dependent on piece colour
-  //TODO: Need to include en passant rule
   if is_white {
     // Check pawn move positions
     let can_move = examine_move_position(row + 1, column, board, &mut valid_moves);
@@ -27,6 +27,32 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) ->
 
     examine_attack_position(row + 1, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
     examine_attack_position(row + 1, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+
+    // Check for en passant rule
+    if last_move.is_some() {
+      let l_move = last_move.as_ref().unwrap();
+      let last_target = &l_move.target;
+      let last_move_piece = board[l_move.target.row][last_target.column].as_ref().unwrap();
+      // Last piece moved Black, both last piece and this piece on same row, this pawn is on the 5th Rank
+      if !last_move_piece.is_white() && last_target.row == origin.row && origin.row == 4 { 
+        match last_move_piece { // Check the last moved piece was a pawn
+          Piece::Pawn(_) => {
+            // Checking if pawn moved 2 spaces
+            // Checking this here because black pawn can only move down the board, 
+            // meaning current - target is guaranteed a positive value, abiding by the usize requirement
+            if &l_move.current.row - last_target.row == 2 {
+              // Check the 2 pawns are on adjacent columns
+              if last_target.column > origin.column && last_target.column - origin.column == 1 {                
+                attacks.push(Position {row: origin.row + 1, column: origin.column + 1});
+              } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
+                attacks.push(Position {row: origin.row + 1, column: origin.column - 1});
+              }
+            }
+          },
+          _ => {} // Not en passant
+        }
+      }
+    }
   } else {
     // Check pawn move positions
     let can_move = examine_move_position(row - 1, column, board, &mut valid_moves);
@@ -36,6 +62,32 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) ->
 
     examine_attack_position(row - 1, column - 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
     examine_attack_position(row - 1, column + 1, board, is_white, &mut valid_moves, &mut attacks, &mut defends, &mut checking);
+
+    // Check for en passant rule
+    if last_move.is_some() {
+      let l_move = last_move.as_ref().unwrap();
+      let last_target = &l_move.target;
+      let last_move_piece = board[l_move.target.row][last_target.column].as_ref().unwrap();
+      // Last piece moved White, both last piece and this piece on same row, this pawn is on the 4th Rank
+      if last_move_piece.is_white() && last_target.row == origin.row && origin.row == 3 { 
+        match last_move_piece { // Check the last moved piece was a pawn
+          Piece::Pawn(_) => {
+            // Checking if pawn moved 2 spaces
+            // Checking this here because white pawn can only move up the board, 
+            // meaning target - current is guaranteed a positive value, abiding by the usize requirement
+            if last_target.row - &l_move.current.row == 2 {
+              // Check the 2 pawns are on adjacent columns
+              if last_target.column > origin.column && last_target.column - origin.column == 1 {                
+                attacks.push(Position {row: origin.row - 1, column: origin.column + 1});
+              } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
+                attacks.push(Position {row: origin.row - 1, column: origin.column - 1});
+              }
+            }
+          },
+          _ => {} // Not en passant
+        }
+      }
+    }
   }
 
   if checking {
@@ -123,7 +175,7 @@ mod pawn_tests {
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.valid_moves.len(), 0);
 
@@ -132,7 +184,7 @@ mod pawn_tests {
     assert!(move_data.attacks.contains(&Position {row: 2, column: 2}));
 
     let pos = Position {row: 1, column: 5};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.valid_moves.len(), 1);
     assert!(move_data.valid_moves.contains(&Position {row: 2, column: 5}));
@@ -143,7 +195,7 @@ mod pawn_tests {
 
     // Check black attack direction
     let pos = Position {row: 2, column: 1};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.valid_moves.len(), 0);
 
@@ -152,7 +204,7 @@ mod pawn_tests {
     assert!(move_data.attacks.contains(&Position {row: 1, column: 2}));
 
     let pos = Position {row: 6, column: 5};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.valid_moves.len(), 2);
     assert!(move_data.valid_moves.contains(&Position {row: 5, column: 5}));
@@ -181,7 +233,7 @@ mod pawn_tests {
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.position, Position {row: 1, column: 1});
 
@@ -202,7 +254,7 @@ mod pawn_tests {
 
     // Check black attack direction
     let pos = Position {row: 2, column: 2};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert_eq!(move_data.position, Position {row: 2, column: 2});
 
@@ -235,7 +287,7 @@ mod pawn_tests {
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
     
     assert!(move_data.checking_path.is_some());
 
@@ -243,7 +295,7 @@ mod pawn_tests {
 
     // Check black attack direction
     let pos = Position {row: 2, column: 2};
-    let move_data = get_pawn_move_data(&pos, &current_board);
+    let move_data = get_pawn_move_data(&pos, &current_board, &None);
 
     assert!(move_data.checking_path.is_some());
 

@@ -41,6 +41,15 @@ impl Board {
   }
 
   /**
+   * Function call to clear a given position on the board
+   */
+  pub fn clear_position(&mut self, position: &Position) -> Vec<Vec<Option<Piece>>> {
+    self.board[position.row][position.column] = None;
+
+    return self.get_current_board();
+  }
+
+  /**
    * Returns a copy of the current state of the board pieces
    */
   pub fn get_current_board(&mut self) -> Vec<Vec<Option<Piece>>> {

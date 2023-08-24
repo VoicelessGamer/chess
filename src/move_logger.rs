@@ -35,7 +35,7 @@ impl MoveLogger {
 
   pub fn add_move(&mut self, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &State) {
     let last = self.moves.len() - 1;
-    if self.moves.len() == 0 && self.moves[last].len() == 2 {
+    if self.moves.len() == 0 || self.moves[last].len() == 2 {
       self.moves.push(vec![LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move}]);
     } else {
       self.moves[last].push(LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move});
@@ -44,7 +44,7 @@ impl MoveLogger {
 }
 
 fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state: &State) -> String {
-  let piece = board[piece_move.target.row][piece_move.target.column].as_ref().unwrap();
+  let piece = board[piece_move.end.row][piece_move.end.column].as_ref().unwrap();
 
   // Check for castling move which follow a separate marking structure
   let mut pgn = get_castling_notation(&piece, piece_move);
@@ -53,22 +53,30 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state:
   // Now update 'pgn' with standard move notation
   if pgn.is_empty() {
     // Add the standard piece abbreviation
-    pgn.push_str(get_piece_abbreviation(&piece));
+    if piece_move.promotion.is_none() {
+      pgn.push_str(get_piece_abbreviation(&piece));
+    }
 
     // Check for piece ambiguity
     let ambiguity = check_ambiguity(&piece, piece_move, board, &state.valid_moves);
 
     if ambiguity.0 {
       // Add File for the ambiguity notation
-      pgn.push(get_file_mapping(piece_move.current.column));
+      pgn.push(get_file_mapping(piece_move.start.column));
     } else if ambiguity.1 {
       // Add Rank for the ambiguity notation
-      pgn.push(get_rank_mapping(piece_move.current.row));
+      pgn.push(get_rank_mapping(piece_move.start.row));
     }
 
     // Add the target destination
-    pgn.push(get_file_mapping(piece_move.target.column));
-    pgn.push(get_rank_mapping(piece_move.target.row));
+    pgn.push(get_file_mapping(piece_move.end.column));
+    pgn.push(get_rank_mapping(piece_move.end.row));
+
+    // Add promotion notation, if necessary
+    if piece_move.promotion.is_some() {
+      pgn.push('=');
+      pgn.push_str(piece_move.promotion.as_ref().unwrap().as_str());
+    }
   }
 
   // Add check / checkmate marks, if required
@@ -87,8 +95,8 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state:
 fn get_castling_notation(piece: &Piece, piece_move: &PieceMove) -> String {
   match piece {
     Piece::King(_) => {
-      let column = piece_move.current.column;
-      let target_column = piece_move.target.column;
+      let column = piece_move.start.column;
+      let target_column = piece_move.end.column;
       if target_column > column && target_column - column == 2 {
         // King-side castling move
         String::from("O-O")
@@ -124,9 +132,9 @@ fn check_ambiguity(piece: &Piece, piece_move: &PieceMove, board: &Vec<Vec<Option
           }
 
           let checking_pos = Position {row: i, column: j};
-          if valid_moves.contains_key(&checking_pos) && valid_moves.get(&checking_pos).unwrap().contains(&piece_move.target) {
+          if valid_moves.contains_key(&checking_pos) && valid_moves.get(&checking_pos).unwrap().contains(&piece_move.end) {
             // Some form of ambiguity exists
-            if piece_move.current.column == j {
+            if piece_move.start.column == j {
               // Both pieces were on the same File, need to display Rank in notation
               return (false, true);
             } else {

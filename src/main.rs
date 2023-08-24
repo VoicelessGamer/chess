@@ -23,7 +23,7 @@ fn main() {
   let mut game = Game::new(
     IOController::new(true, true),
     IOView {use_unicode: true},
-    test_default_config()
+    test_config()
   );
 
   game.run();
@@ -32,7 +32,7 @@ fn main() {
 /**
  * Test function. This will be moved at a later date to come from config files
  */
-fn test_default_config() -> config::GameConfig {
+fn test_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
       PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 1},
@@ -86,16 +86,14 @@ fn test_default_config() -> config::GameConfig {
 /**
  * Test function. This will be moved at a later date to come from config files
  */
-fn _test_simple_config() -> config::GameConfig {
+fn _test_config() -> config::GameConfig {
   let board_config = config::BoardConfig {
     pieces: vec![
-      PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 5},
-      PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+      PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 6},
+      PieceConfig {piece: String::from("king"), white: true, column: 6, row: 4},
 
-      PieceConfig {piece: String::from("rook"), white: false, column: 0, row: 7},
-      PieceConfig {piece: String::from("queen"), white: false, column: 3, row: 6},
-      PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7},
-      PieceConfig {piece: String::from("rook"), white: false, column: 7, row: 7}
+      PieceConfig {piece: String::from("pawn"), white: false, column: 3, row: 6},
+      PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
     ],
     rows: 8,
     columns: 8
@@ -103,10 +101,10 @@ fn _test_simple_config() -> config::GameConfig {
 
   GameConfig {
     initial_board: board_config,
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_long_castle: false,
+    white_short_castle: false,
+    black_long_castle: false,
+    black_short_castle: false,
     white_turn: true,
   }
 }

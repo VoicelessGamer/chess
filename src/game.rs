@@ -13,6 +13,8 @@ use crate::{
   move_data::MoveData
 };
 
+const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
+
 #[derive(Clone, Debug)]
 pub enum GameState {
   Active,
@@ -99,7 +101,7 @@ impl<C: Controller, V: View> Game<C, V> {
       let piece_move = self.controller.get_move(self.state.white_turn);
 
       // Validate the chosen move
-      let is_valid = self.validate_move(&piece_move);
+      let is_valid = self.validate_move(&piece_move, &current_board);
 
       if is_valid {
         // Check move to update the castling options, if needed
@@ -112,24 +114,34 @@ impl<C: Controller, V: View> Game<C, V> {
         let en_passant_move = self.get_en_passant_move(&piece_move, &current_board);
 
         // The move is valid, make the move on the board and update the players with the current board state
-        current_board = self.board.move_piece(&piece_move.current, &piece_move.target);
+        current_board = self.board.move_piece(&piece_move.start, &piece_move.end);
 
         // If this was a castling move then move the Rook piece as well
         if castle_move.is_some() {
           let c_move = castle_move.unwrap();
-          current_board = self.board.move_piece(&c_move.current, &c_move.target);
+          current_board = self.board.move_piece(&c_move.start, &c_move.end);
         } else if en_passant_move.is_some() {
           // If this was an en passant move then remove the taken piece
           let ep_move = en_passant_move.unwrap();
           current_board = self.board.clear_position(&ep_move);
+        } else if piece_move.promotion.is_some(){
+          // If it is neither a castling move or en passant and the move has a supplied promotion piece
+          let promoted_piece = self.get_promotion_piece(piece_move.promotion.as_ref().unwrap());
+          if promoted_piece.is_some() {
+            current_board = self.board.set_position(&piece_move.end, promoted_piece);
+          } else {
+            self.state.game_state = GameState::Error;
+            continue;
+          }
         }
 
-        // Update the move log
-        self.move_logger.add_move(piece_move.clone(), &current_board, &self.state);
-        self.state.last_move = Some(piece_move);
+        self.state.last_move = Some(piece_move.clone());
 
         // Evaluate the new board and update the game state
         self.update_game_state(&current_board);
+
+        // Update the move log
+        self.move_logger.add_move(piece_move, &current_board, &self.state);
 
         // Swap the active player
         self.state.white_turn = !self.state.white_turn;
@@ -144,10 +156,27 @@ impl<C: Controller, V: View> Game<C, V> {
    * Validate the player move against the list of calculated valid moves in the game state. 
    * Returns true if the move can be made.
    */
-  fn validate_move(&self, piece_move: &PieceMove) -> bool {
-    if let Some(valid_positions) = self.state.valid_moves.get(&piece_move.current) {
-      if valid_positions.contains(&piece_move.target) {
-        return true;
+  fn validate_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> bool {
+    if let Some(valid_positions) = self.state.valid_moves.get(&piece_move.start) {
+      if valid_positions.contains(&piece_move.end) {
+        // Validate promotion move
+        // Check if the piece is on the furthest or nearest rank based on piece colour
+        if (self.state.white_turn && piece_move.end.row == 7) || (!self.state.white_turn && piece_move.end.row == 0) {
+          // Check if piece moved was a pawn
+          match board[piece_move.start.row][piece_move.start.column].as_ref().unwrap() {
+            Piece::Pawn(_) => {
+              // Promotion not supplied when it should have been or provided promotion is invalid
+              if piece_move.promotion.is_none() || !VALID_PROMOTIONS.contains(&piece_move.promotion.as_ref().unwrap().as_str()){
+                return false;
+              }
+              return true; // Valid promotion move
+            },
+            _ => return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
+          }
+        }
+
+        // Returns false if a promotion has been provided when it's not a promotion move
+        return piece_move.promotion.is_none(); 
       }
     }
     return false;
@@ -158,21 +187,21 @@ impl<C: Controller, V: View> Game<C, V> {
    * The supplied board should be the state of the board before the piece has been moved.
    */
   fn update_castling_options(&mut self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) {
-    match board[piece_move.current.row][piece_move.current.column].as_ref().unwrap() {
+    match board[piece_move.start.row][piece_move.start.column].as_ref().unwrap() {
       Piece::Rook(_) => {
         if self.state.white_turn {
-          if self.state.white_long_castle && piece_move.current.column == 0 {
+          if self.state.white_long_castle && piece_move.start.column == 0 {
             // White's turn, white has not yet castled, this moved rook is on the 1st File/column
             self.state.white_long_castle = false;
-          } else if self.state.white_short_castle && piece_move.current.column == 7 {
+          } else if self.state.white_short_castle && piece_move.start.column == 7 {
             // White's turn, white has not yet castled, this moved rook is on the 8th File/column
             self.state.white_short_castle = false;
           }
         } else {
-          if self.state.black_long_castle && piece_move.current.column == 0 {
+          if self.state.black_long_castle && piece_move.start.column == 0 {
             // Black's turn, black has not yet castled, this moved rook is on the 1st File/column
             self.state.black_long_castle = false;
-          } else if self.state.black_short_castle && piece_move.current.column == 7 {
+          } else if self.state.black_short_castle && piece_move.start.column == 7 {
             // Black's turn, black has not yet castled, this moved rook is on the 8th File/column
             self.state.black_short_castle = false;
           }
@@ -198,25 +227,23 @@ impl<C: Controller, V: View> Game<C, V> {
    * This assumes that the move has already been validated.
    */
   fn get_castle_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<PieceMove> {
-    let column = piece_move.current.column;
-    let target_column = piece_move.target.column;
-    let row = piece_move.current.row;
+    let column = piece_move.start.column;
+    let target_column = piece_move.end.column;
+    let row = piece_move.start.row;
 
-    match board[row][column].as_ref().unwrap() {
-      Piece::King(_) => {
-        if target_column > column && target_column - column == 2 {
-          // King-side castling move
-          return Some(PieceMove {current: Position {row, column: 7}, target: Position {row, column: 5}});
-        } else if column > target_column && column - target_column == 2 {
-          // Queen-side castling move
-          return Some(PieceMove {current: Position {row, column: 0}, target: Position {row, column: 3}});
-        } else {
-          // Not a castling move
-          return None
-        }
-      },
-      _ => return None
+    if let Piece::King(_) = board[row][column].as_ref().unwrap() {
+      if target_column > column && target_column - column == 2 {
+        // King-side castling move
+        return Some(PieceMove {start: Position {row, column: 7}, end: Position {row, column: 5}, promotion: None});
+      } else if column > target_column && column - target_column == 2 {
+        // Queen-side castling move
+        return Some(PieceMove {start: Position {row, column: 0}, end: Position {row, column: 3}, promotion: None});
+      } else {
+        // Not a castling move
+        return None
+      }
     }
+    return None
   }
 
   /**
@@ -224,10 +251,23 @@ impl<C: Controller, V: View> Game<C, V> {
    */
   fn get_en_passant_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<Position> {
     // If the pawn changed File and the target position currently does not contain a piece then it can only be en passant
-    if piece_move.target.column != piece_move.current.column && board[piece_move.target.row][piece_move.target.column].is_none() {
-      return Some(Position {row: piece_move.current.row, column: piece_move.target.column});
+    if piece_move.end.column != piece_move.start.column && board[piece_move.end.row][piece_move.end.column].is_none() {
+      return Some(Position {row: piece_move.start.row, column: piece_move.end.column});
     }
     None
+  }
+
+  /**
+   * Returns a new Piece for the matching promotion id
+   */
+  fn get_promotion_piece(&self, promotion_id: &String) -> Option<Piece> {
+    match promotion_id.as_str() {
+      "B" => Some(Piece::Bishop(self.state.white_turn)),
+      "N" => Some(Piece::Knight(self.state.white_turn)),
+      "Q" => Some(Piece::Queen(self.state.white_turn)),
+      "R" => Some(Piece::Rook(self.state.white_turn)),
+      _ => None
+    }
   }
 
   /**
@@ -371,6 +411,10 @@ impl<C: Controller, V: View> Game<C, V> {
     // Add all the valid standard piece moves
     for move_data in opposing_move_data {
       if !move_data.valid_moves.is_empty() {
+        // let mut v_moves = move_data.valid_moves;
+        // if let Piece::Pawn(_) = board[move_data.position.row][move_data.position.column].as_ref().unwrap() {
+        //   v_moves.extend(move_data.attacks);
+        // }
         valid_moves.insert(move_data.position, move_data.valid_moves);
       }
     }

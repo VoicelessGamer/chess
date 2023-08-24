@@ -31,25 +31,22 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>, la
     // Check for en passant rule
     if last_move.is_some() {
       let l_move = last_move.as_ref().unwrap();
-      let last_target = &l_move.target;
-      let last_move_piece = board[l_move.target.row][last_target.column].as_ref().unwrap();
+      let last_target = &l_move.end;
+      let last_move_piece = board[l_move.end.row][last_target.column].as_ref().unwrap();
       // Last piece moved Black, both last piece and this piece on same row, this pawn is on the 5th Rank
       if !last_move_piece.is_white() && last_target.row == origin.row && origin.row == 4 { 
-        match last_move_piece { // Check the last moved piece was a pawn
-          Piece::Pawn(_) => {
-            // Checking if pawn moved 2 spaces
-            // Checking this here because black pawn can only move down the board, 
-            // meaning current - target is guaranteed a positive value, abiding by the usize requirement
-            if &l_move.current.row - last_target.row == 2 {
-              // Check the 2 pawns are on adjacent columns
-              if last_target.column > origin.column && last_target.column - origin.column == 1 {                
-                attacks.push(Position {row: origin.row + 1, column: origin.column + 1});
-              } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
-                attacks.push(Position {row: origin.row + 1, column: origin.column - 1});
-              }
+        if let Piece::Pawn(_) = last_move_piece { // Check the last moved piece was a pawn
+          // Checking if pawn moved 2 spaces
+          // Checking this here because black pawn can only move down the board, 
+          // meaning current - target is guaranteed a positive value, abiding by the usize requirement
+          if &l_move.start.row - last_target.row == 2 {
+            // Check the 2 pawns are on adjacent columns
+            if last_target.column > origin.column && last_target.column - origin.column == 1 {                
+              valid_moves.push(Position {row: origin.row + 1, column: origin.column + 1});
+            } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
+              valid_moves.push(Position {row: origin.row + 1, column: origin.column - 1});
             }
-          },
-          _ => {} // Not en passant
+          }
         }
       }
     }
@@ -66,25 +63,24 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>, la
     // Check for en passant rule
     if last_move.is_some() {
       let l_move = last_move.as_ref().unwrap();
-      let last_target = &l_move.target;
-      let last_move_piece = board[l_move.target.row][last_target.column].as_ref().unwrap();
+      let last_target = &l_move.end;
+      let last_move_piece = board[l_move.end.row][last_target.column].as_ref().unwrap();
       // Last piece moved White, both last piece and this piece on same row, this pawn is on the 4th Rank
-      if last_move_piece.is_white() && last_target.row == origin.row && origin.row == 3 { 
-        match last_move_piece { // Check the last moved piece was a pawn
-          Piece::Pawn(_) => {
-            // Checking if pawn moved 2 spaces
-            // Checking this here because white pawn can only move up the board, 
-            // meaning target - current is guaranteed a positive value, abiding by the usize requirement
-            if last_target.row - &l_move.current.row == 2 {
-              // Check the 2 pawns are on adjacent columns
-              if last_target.column > origin.column && last_target.column - origin.column == 1 {                
-                attacks.push(Position {row: origin.row - 1, column: origin.column + 1});
-              } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
-                attacks.push(Position {row: origin.row - 1, column: origin.column - 1});
-              }
+      if last_move_piece.is_white() && last_target.row == origin.row && origin.row == 3 {
+        if let Piece::Pawn(_) = last_move_piece { // Check the last moved piece was a pawn
+          // Checking if pawn moved 2 spaces
+          // Checking this here because white pawn can only move up the board, 
+          // meaning target - current is guaranteed a positive value, abiding by the usize requirement
+          if last_target.row - &l_move.start.row == 2 {
+            // Check the 2 pawns are on adjacent columns
+            if last_target.column > origin.column && last_target.column - origin.column == 1 {
+              valid_moves.push(Position {row: origin.row - 1, column: origin.column + 1});
+              attacks.push(Position {row: origin.row - 1, column: origin.column + 1});
+            } else if origin.column > last_target.column && origin.column - last_target.column == 1 {
+              valid_moves.push(Position {row: origin.row - 1, column: origin.column - 1});
+              attacks.push(Position {row: origin.row - 1, column: origin.column - 1});
             }
-          },
-          _ => {} // Not en passant
+          }
         }
       }
     }

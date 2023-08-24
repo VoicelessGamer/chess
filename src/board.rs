@@ -41,6 +41,15 @@ impl Board {
   }
 
   /**
+   * Function call to set a given position on the board to a given piece
+   */
+  pub fn set_position(&mut self, position: &Position, piece: Option<Piece>) -> Vec<Vec<Option<Piece>>> {
+    self.board[position.row][position.column] = piece;
+
+    return self.get_current_board();
+  }
+
+  /**
    * Function call to clear a given position on the board
    */
   pub fn clear_position(&mut self, position: &Position) -> Vec<Vec<Option<Piece>>> {

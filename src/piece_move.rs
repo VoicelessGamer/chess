@@ -2,6 +2,7 @@ use crate::position::Position;
 
 #[derive(Clone)]
 pub struct PieceMove {
-  pub current: Position,
-  pub target: Position
+  pub start: Position,
+  pub end: Position,
+  pub promotion: Option<String>
 }

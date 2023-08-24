@@ -79,16 +79,21 @@ fn get_move_input() -> PieceMove {
     input = input.trim().to_string();
 
     let split: Vec<&str> = input.split(",").collect();
-    if split.len() == 4 {
+    if split.len() == 4 || split.len() == 5 {
+      let mut promotion = None;
+      if split.len() == 5 {
+        promotion = Some(split[4].to_string());
+      }
       return PieceMove {
-        current: Position {
+        start: Position {
           row: split[1].parse::<usize>().unwrap(), 
           column: split[0].parse::<usize>().unwrap()
         }, 
-        target: Position {
+        end: Position {
           row: split[3].parse::<usize>().unwrap(), 
           column: split[2].parse::<usize>().unwrap()
-        }
+        },
+        promotion
       }
     }
     println!("Invalid Input");

@@ -1,3 +1,9 @@
+extern crate serde;
+extern crate serde_json;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PieceConfig {
   pub piece: String,
   pub white: bool,
@@ -5,12 +11,14 @@ pub struct PieceConfig {
   pub column: usize
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BoardConfig {
   pub pieces: Vec<PieceConfig>,
   pub rows: usize,
   pub columns: usize
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GameConfig {
   pub initial_board: BoardConfig,
   pub white_long_castle: bool, // Whether white can long castle

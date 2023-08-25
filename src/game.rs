@@ -33,7 +33,7 @@ pub struct State {
   pub black_long_castle: bool, // Whether black can still long castle
   pub black_short_castle: bool, // Whether black can still short castle
   pub in_check: bool, // Whether the current player's king is in check (updated for the next player after each move)
-  pub valid_moves: HashMap<Position, Vec<Position>>,
+  pub valid_moves: HashMap<Position, Vec<Position>>, // A map of the current player's valid moves for each piece
   pub last_move: Option<PieceMove>
 }
 
@@ -90,9 +90,7 @@ impl<C: Controller, V: View> Game<C, V> {
     let mut current_board = self.board.get_current_board();
 
     // Evaluate the starting board and update the game state with initial values
-    self.state.white_turn = !self.state.white_turn; // Need to be on opposite turn for the update to get correct moves
-    self.update_game_state(&current_board);
-    self.state.white_turn = !self.state.white_turn; // TODO: This reset needs looking at
+    self.update_game_state(!self.state.white_turn, &current_board);
 
     self.view.update_state(&current_board, self.state.clone());
     
@@ -138,7 +136,7 @@ impl<C: Controller, V: View> Game<C, V> {
         self.state.last_move = Some(piece_move.clone());
 
         // Evaluate the new board and update the game state
-        self.update_game_state(&current_board);
+        self.update_game_state(self.state.white_turn, &current_board);
 
         // Update the move log
         self.move_logger.add_move(piece_move, &current_board, &self.state);
@@ -275,7 +273,7 @@ impl<C: Controller, V: View> Game<C, V> {
    * checkmate on the opposing player. This function will return the state of 
    * check for the opposing player and the new game state.
    */
-  fn update_game_state(&mut self, board: &Vec<Vec<Option<Piece>>>) {
+  fn update_game_state(&mut self, white_turn: bool, board: &Vec<Vec<Option<Piece>>>) {
     let mut opposing_king: Option<MoveData> = None;     // Move data for the opposing player's king
     let mut attacked_positions: Vec<Position> = vec![]; // List of all attacked positions for the current player
     let mut opposing_move_data: Vec<MoveData> = vec![]; // List of the move data for each piece of the opposing player
@@ -287,7 +285,7 @@ impl<C: Controller, V: View> Game<C, V> {
     let mut player_check = false;
 
     // Retrieve all the positional information to determine check state
-    // TODO: Lots of cloning of the move data in this loop, must check the effect on performance. May be better to collect all first and second loop to get references
+    // TODO: Lots of cloning of the move data in this loop, must check the effect on performance
     for i in 0..board.len() {
       let row = &board[i];
       for j in 0..row.len() {
@@ -298,8 +296,8 @@ impl<C: Controller, V: View> Game<C, V> {
             let position = Position {row: i, column: j};
             let move_data = self.get_move_data(&position, board);
 
-            if (self.state.white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
-                (!self.state.white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
+            if (white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
+                (!white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
               // This part of the if-else statement is for retrieving the opposing player's data
 
               // Check if this piece is the king and gather data to separate variable
@@ -432,7 +430,7 @@ impl<C: Controller, V: View> Game<C, V> {
       return;
     } else if player_check && king_no_moves && !one_checker_valid_defend {
       // Opposing player in checkmate, change state to end game
-      if self.state.white_turn {
+      if white_turn {
         self.state.in_check = player_check;
         self.state.game_state = GameState::WhiteWin;
       } else {

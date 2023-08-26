@@ -5,6 +5,11 @@ use crate::{
   piece_move::PieceMove
 };
 
+/**
+ * Retrieves the relevant move data for a Pawn piece at a given position on the board.
+ * This move data contains all the currently valid moves, positions under attack, friendly pieces defended by this piece
+ * and the path to the opposing king if it is in check by this piece.
+ */
 pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>, last_move: &Option<PieceMove>) -> MoveData {
   let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
   let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
@@ -14,7 +19,7 @@ pub fn get_pawn_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>, la
 
   let is_white = board[origin.row][origin.column].as_ref().unwrap().is_white();
 
-  let row = origin.row as i8; // TODO: don't need to cast
+  let row = origin.row as i8;
   let column = origin.column as i8;
 
   // Pawn attack direction is dependent on piece colour
@@ -117,7 +122,9 @@ pub fn examine_move_position(row_to_check: i8, column_to_check: i8, board: &Vec<
   }
 
   return false;
-}/**
+}
+
+/**
  * Examines an attack-only position on the board and updates the moves reference vectors accordingly.
  */
 pub fn examine_attack_position(row_to_check: i8, column_to_check: i8, board: &Vec<Vec<Option<Piece>>>, is_white: bool,
@@ -148,10 +155,24 @@ pub fn examine_attack_position(row_to_check: i8, column_to_check: i8, board: &Ve
     }
 }
 
+/**
+ * Checking if a given move was an en passant move and returning the position of the taken piece if it was
+ */
+pub fn get_en_passant_move(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<Position> {
+  // If the pawn changed File and the target position currently does not contain a piece then it can only be en passant
+  if piece_move.end.column != piece_move.start.column && board[piece_move.end.row][piece_move.end.column].is_none() {
+    return Some(Position {row: piece_move.start.row, column: piece_move.end.column});
+  }
+  None
+}
+
 #[cfg(test)]
 mod pawn_tests {
   use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::pawn::*};
 
+  /**
+   * Testing the attacks and valid_moves have all been calculated correctly through the get_knight_move_data function
+   */
   #[test]
   fn test_standard_positions() {
     let board_config = config::BoardConfig {
@@ -211,6 +232,9 @@ mod pawn_tests {
     assert!(move_data.attacks.contains(&Position {row: 5, column: 6}));
   }
 
+  /**
+   * Testing the attacks, defends have all been calculated correctly through the get_pawn_move_data function
+   */
   #[test]
   fn test_attack_defend() {
     let board_config = config::BoardConfig {
@@ -265,6 +289,9 @@ mod pawn_tests {
     assert!(move_data.checking_path.is_none());
   }
 
+  /**
+   * Testing the checking path is calculated correctly through the get_pawn_move_data function
+   */
   #[test]
   fn test_check_path() {
     let board_config = config::BoardConfig {
@@ -296,5 +323,97 @@ mod pawn_tests {
     assert!(move_data.checking_path.is_some());
 
     assert!(move_data.checking_path.unwrap().is_empty());
+  }
+
+  /**
+   * Testing the get_pawn_move_data function correctly collects en passant move
+   */
+  #[test]
+  fn test_en_passant_move_data_white() {
+    let board_config = config::BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 4},
+        PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 4}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+    let current_board = board.get_current_board();
+
+    let last_move = &Some(PieceMove { start: Position { row: 6, column: 1 }, end: Position { row: 4, column: 1 }, promotion: None });
+    let valid_moves = get_pawn_move_data(&Position { row: 4, column: 2 }, &current_board, last_move).valid_moves;
+
+    assert!(valid_moves.contains(&Position { row: 5, column: 1 }));
+  }
+
+  /**
+   * Testing the get_pawn_move_data function correctly collects en passant move
+   */
+  #[test]
+  fn test_en_passant_move_data_black() {
+    let board_config = config::BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 3},
+        PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 3}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+    let current_board = board.get_current_board();
+
+    let last_move = &Some(PieceMove { start: Position { row: 1, column: 2 }, end: Position { row: 3, column: 2 }, promotion: None });
+    let valid_moves = get_pawn_move_data(&Position { row: 3, column: 1 }, &current_board, last_move).valid_moves;
+
+    assert!(valid_moves.contains(&Position { row: 2, column: 2 }));
+  }
+
+  /**
+   * Testing the get_pawn_move_data function doesn't return an en passant option when the opposing pawn only moves 1 square
+   */
+  #[test]
+  fn no_en_passant_white_single_move() {
+    let board_config = config::BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 5},
+        PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 5}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+    let current_board = board.get_current_board();
+
+    let last_move = &Some(PieceMove { start: Position { row: 6, column: 1 }, end: Position { row: 5, column: 1 }, promotion: None });
+    let valid_moves = get_pawn_move_data(&Position { row: 5, column: 2 }, &current_board, last_move).valid_moves;
+
+    assert!(!valid_moves.contains(&Position { row: 6, column: 1 }));
+  }
+
+  /**
+   * Testing the get_pawn_move_data function doesn't return an en passant option when the opposing pawn only moves 1 square
+   */
+  #[test]
+  fn no_en_passant_black_single_move() {
+    let board_config = config::BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 2},
+        PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 2}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+    let current_board = board.get_current_board();
+
+    let last_move = &Some(PieceMove { start: Position { row: 1, column: 2 }, end: Position { row: 2, column: 2 }, promotion: None });
+    let valid_moves = get_pawn_move_data(&Position { row: 2, column: 1 }, &current_board, last_move).valid_moves;
+
+    assert!(!valid_moves.contains(&Position { row: 1, column: 2 }));
   }
 }

@@ -5,6 +5,11 @@ use crate::{
   pieces::piece_util::piece_util::examine_line
 };
 
+/**
+ * Retrieves the relevant move data for a Queen piece at a given position on the board.
+ * This move data contains all the currently valid moves, positions under attack, friendly pieces defended by this piece,
+ * opposing pieces pinned to the opposing king and the path to the opposing king if it is in check by this piece.
+ */
 pub fn get_queen_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
   let mut valid_moves: Vec<Position> = vec![];          // Valid positions this piece can move to including captures
   let mut attacks: Vec<Position> = vec![];              // Valid positions this piece has under attack
@@ -56,6 +61,9 @@ pub fn get_queen_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) -
 mod queen_tests {
   use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::queen::*};
 
+  /**
+   * Testing the attacks, defends and pins have all been calculated correctly through the get_queen_move_data function
+   */
   #[test]
   fn test_attack_defend_pin() {
     let board_config = config::BoardConfig {
@@ -108,6 +116,9 @@ mod queen_tests {
     assert!(move_data.checking_path.is_none());
   }
 
+  /**
+   * Testing the checking path is calculated correctly through the get_queen_move_data function
+   */
   #[test]
   fn test_check_path() {
     let board_config = config::BoardConfig {

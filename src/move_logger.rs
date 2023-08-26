@@ -33,6 +33,10 @@ impl MoveLogger {
     }
   }
 
+  /**
+   * Adds a LoggedMove to the moves vector.
+   * This function should be called after a move has been made and the game state is updated.
+   */
   pub fn add_move(&mut self, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &State) {
     let last = self.moves.len() - 1;
     if self.moves.len() == 0 || self.moves[last].len() == 2 {
@@ -40,9 +44,24 @@ impl MoveLogger {
     } else {
       self.moves[last].push(LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move});
     }
+
+    self.print_logged_moves();
+  }
+
+  // TODO: test function, remove
+  fn print_logged_moves(&self) {
+    for i in 0..self.moves.len() {
+      for j in 0..self.moves[i].len() {
+        print!("{} ", self.moves[i][j].pgn_notation);
+      }
+      println!("");
+    }
   }
 }
 
+/**
+ * Calculates the standard pgn notation for a given move.
+ */
 fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state: &State) -> String {
   let piece = board[piece_move.end.row][piece_move.end.column].as_ref().unwrap();
 
@@ -92,6 +111,9 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state:
   return pgn;
 }
 
+/**
+ * Checks whether a move was a castling move and returns the standard pgn castling notation.
+ */
 fn get_castling_notation(piece: &Piece, piece_move: &PieceMove) -> String {
   match piece {
     Piece::King(_) => {
@@ -111,6 +133,10 @@ fn get_castling_notation(piece: &Piece, piece_move: &PieceMove) -> String {
   }
 }
 
+/**
+ * Checks for any ambiguity in a move and returns a tuple to determine what should be added to the pgn notation to disambiguate
+ * The return type is a tuple where position 0 means to add the File identifier and position 1 to add the Rank identifier
+ */
 fn check_ambiguity(piece: &Piece, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, valid_moves: &HashMap<Position, Vec<Position>>) -> (bool, bool) {
   match piece {
     Piece::Bishop(_) | 
@@ -150,6 +176,9 @@ fn check_ambiguity(piece: &Piece, piece_move: &PieceMove, board: &Vec<Vec<Option
   }
 }
 
+/**
+ * Returns the standard pgn piece notation based on the supplied Piece
+ */
 fn get_piece_abbreviation(piece: &Piece) -> &str {
   match piece  {
     Piece::Bishop(_) => "B",
@@ -161,6 +190,9 @@ fn get_piece_abbreviation(piece: &Piece) -> &str {
   }
 }
 
+/**
+ * Returns the alphabetic File notation for the supplied column
+ */
 fn get_file_mapping(column: usize) -> char {
   match column  {
     0 => 'a',
@@ -175,6 +207,9 @@ fn get_file_mapping(column: usize) -> char {
   }
 }
 
+/**
+ * Returns the row index, incremented, as a char
+ */
 fn get_rank_mapping(row: usize) -> char {
   match row  {
     0 => '1',

@@ -26,3 +26,16 @@ impl Piece {
     }
   }
 }
+
+/**
+ * Returns a new Piece for the matching promotion id
+ */
+pub fn get_promotion_piece(promotion_id: &String, is_white: bool) -> Option<Piece> {
+  match promotion_id.as_str() {
+    "B" => Some(Piece::Bishop(is_white)),
+    "N" => Some(Piece::Knight(is_white)),
+    "Q" => Some(Piece::Queen(is_white)),
+    "R" => Some(Piece::Rook(is_white)),
+    _ => None
+  }
+}

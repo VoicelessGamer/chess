@@ -13,7 +13,7 @@ use crate::{
   move_data::MoveData
 };
 
-const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
+pub const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
 
 #[derive(Clone, Debug)]
 pub enum GameState {
@@ -81,6 +81,13 @@ impl<C: Controller, V: View> Game<C, V> {
   }
 
   /**
+   * Returns a clone of the State struct
+   */
+  pub fn get_state(&self) -> State {
+    return self.state.clone();
+  }
+
+  /**
    * This is the entrypoint for the main logic of the game. Once called, this
    * function will process the moves provided by the controller, handle validation
    * and update the view with the changes to the board.
@@ -97,56 +104,63 @@ impl<C: Controller, V: View> Game<C, V> {
     // Loop the turn based logic until there is an outcome for the game
     while let GameState::Active = self.state.game_state {
       let piece_move = self.controller.get_move(self.state.white_turn);
+      self.perform_move(piece_move, current_board);
+      current_board = self.board.get_current_board();
+    }
+  }
 
-      // Validate the chosen move
-      let is_valid = self.validate_move(&piece_move, &current_board);
+  /**
+   * Given a piece move, validates the move, updates the board and the game's state to reflect the changes
+   */
+  fn perform_move(&mut self, piece_move: PieceMove, mut current_board: Vec<Vec<Option<Piece>>>) {
+    // Validate the chosen move
+    let is_valid = self.validate_move(&piece_move, &current_board);
 
-      if is_valid {
-        // Check move to update the castling options, if needed
-        self.update_castling_options(&piece_move, &current_board);
+    if is_valid {
+      // Check move to update the castling options, if needed
+      self.update_castling_options(&piece_move, &current_board);
 
-        // Checks if the move made was a castling move and retrieves the rook move if it was
-        let castle_move = self.get_castle_move(&piece_move, &current_board);
+      // Checks if the move made was a castling move and retrieves the rook move if it was
+      let castle_move = pieces::king::get_castle_move(&piece_move, &current_board);
 
-        // Checks if the move made was a en passant move and retrieves the taken piece if it was
-        let en_passant_move = self.get_en_passant_move(&piece_move, &current_board);
+      // Checks if the move made was a en passant move and retrieves the taken piece if it was
+      let en_passant_move = pieces::pawn::get_en_passant_move(&piece_move, &current_board);
 
-        // The move is valid, make the move on the board and update the players with the current board state
-        current_board = self.board.move_piece(&piece_move.start, &piece_move.end);
+      // The move is valid, make the move on the board and update the players with the current board state
+      current_board = self.board.move_piece(&piece_move.start, &piece_move.end);
 
-        // If this was a castling move then move the Rook piece as well
-        if castle_move.is_some() {
-          let c_move = castle_move.unwrap();
-          current_board = self.board.move_piece(&c_move.start, &c_move.end);
-        } else if en_passant_move.is_some() {
-          // If this was an en passant move then remove the taken piece
-          let ep_move = en_passant_move.unwrap();
-          current_board = self.board.clear_position(&ep_move);
-        } else if piece_move.promotion.is_some(){
-          // If it is neither a castling move or en passant and the move has a supplied promotion piece
-          let promoted_piece = self.get_promotion_piece(piece_move.promotion.as_ref().unwrap());
-          if promoted_piece.is_some() {
-            current_board = self.board.set_position(&piece_move.end, promoted_piece);
-          } else {
-            self.state.game_state = GameState::Error;
-            continue;
-          }
+      // If this was a castling move then move the Rook piece as well
+      if castle_move.is_some() {
+        let c_move = castle_move.unwrap();
+        current_board = self.board.move_piece(&c_move.start, &c_move.end);
+      } else if en_passant_move.is_some() {
+        // If this was an en passant move then remove the taken piece
+        let ep_move = en_passant_move.unwrap();
+        current_board = self.board.clear_position(&ep_move);
+      } else if piece_move.promotion.is_some(){
+        // If it is neither a castling move or en passant and the move has a supplied promotion piece
+        let promoted_piece = pieces::piece::get_promotion_piece(piece_move.promotion.as_ref().unwrap(), self.state.white_turn);
+        if promoted_piece.is_some() {
+          current_board = self.board.set_position(&piece_move.end, promoted_piece);
+        } else {
+          self.state.game_state = GameState::Error;
+          return;
         }
-
-        self.state.last_move = Some(piece_move.clone());
-
-        // Evaluate the new board and update the game state
-        self.update_game_state(self.state.white_turn, &current_board);
-
-        // Update the move log
-        self.move_logger.add_move(piece_move, &current_board, &self.state);
-
-        // Swap the active player
-        self.state.white_turn = !self.state.white_turn;
-  
-        // Update the player's views
-        self.view.update_state(&current_board, self.state.clone());
       }
+
+      self.state.last_move = Some(piece_move.clone());
+
+      // Evaluate the new board and update the game state
+      self.update_game_state(self.state.white_turn, &current_board);
+
+      // Update the move log
+      self.move_logger.add_move(piece_move, &current_board, &self.state);
+
+      // Swap the active player
+      self.state.white_turn = !self.state.white_turn;
+
+      // Update the player's views
+      self.view.update_state(&current_board, self.state.clone());
     }
   }
 
@@ -220,55 +234,6 @@ impl<C: Controller, V: View> Game<C, V> {
   }
 
   /**
-   * Checks the player's move to see if it was a castling move (king moving 2 spaces).
-   * If it was a castling move then the move for the Rook is returned.
-   * This assumes that the move has already been validated.
-   */
-  fn get_castle_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<PieceMove> {
-    let column = piece_move.start.column;
-    let target_column = piece_move.end.column;
-    let row = piece_move.start.row;
-
-    if let Piece::King(_) = board[row][column].as_ref().unwrap() {
-      if target_column > column && target_column - column == 2 {
-        // King-side castling move
-        return Some(PieceMove {start: Position {row, column: 7}, end: Position {row, column: 5}, promotion: None});
-      } else if column > target_column && column - target_column == 2 {
-        // Queen-side castling move
-        return Some(PieceMove {start: Position {row, column: 0}, end: Position {row, column: 3}, promotion: None});
-      } else {
-        // Not a castling move
-        return None
-      }
-    }
-    return None
-  }
-
-  /**
-   * Checking if a given move was an en passant move and returning the position of the taken piece if it was
-   */
-  fn get_en_passant_move(&self, piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) -> Option<Position> {
-    // If the pawn changed File and the target position currently does not contain a piece then it can only be en passant
-    if piece_move.end.column != piece_move.start.column && board[piece_move.end.row][piece_move.end.column].is_none() {
-      return Some(Position {row: piece_move.start.row, column: piece_move.end.column});
-    }
-    None
-  }
-
-  /**
-   * Returns a new Piece for the matching promotion id
-   */
-  fn get_promotion_piece(&self, promotion_id: &String) -> Option<Piece> {
-    match promotion_id.as_str() {
-      "B" => Some(Piece::Bishop(self.state.white_turn)),
-      "N" => Some(Piece::Knight(self.state.white_turn)),
-      "Q" => Some(Piece::Queen(self.state.white_turn)),
-      "R" => Some(Piece::Rook(self.state.white_turn)),
-      _ => None
-    }
-  }
-
-  /**
    * Evaluates the current position of the board, searching for a check or a
    * checkmate on the opposing player. This function will return the state of 
    * check for the opposing player and the new game state.
@@ -294,7 +259,7 @@ impl<C: Controller, V: View> Game<C, V> {
           None => continue,
           Some(chess_piece) => {
             let position = Position {row: i, column: j};
-            let move_data = self.get_move_data(&position, board);
+            let move_data = pieces::get_move_data(&position, board, &self.state.last_move);
 
             if (white_turn && !chess_piece.is_white()) || // White's turn, this is black piece or
                 (!white_turn && chess_piece.is_white()) { // Black's turn, this is white piece
@@ -409,10 +374,6 @@ impl<C: Controller, V: View> Game<C, V> {
     // Add all the valid standard piece moves
     for move_data in opposing_move_data {
       if !move_data.valid_moves.is_empty() {
-        // let mut v_moves = move_data.valid_moves;
-        // if let Piece::Pawn(_) = board[move_data.position.row][move_data.position.column].as_ref().unwrap() {
-        //   v_moves.extend(move_data.attacks);
-        // }
         valid_moves.insert(move_data.position, move_data.valid_moves);
       }
     }
@@ -444,24 +405,71 @@ impl<C: Controller, V: View> Game<C, V> {
     self.state.game_state = GameState::Active;
     return;
   }
-
-  /**
-   * Get the relevant move data based on the Piece type in the given position
-   */
-  fn get_move_data(&self, position: &Position, board: &Vec<Vec<Option<Piece>>>) -> MoveData {
-    match &board[position.row][position.column] {
-      Some(piece) => {
-        match piece {
-          Piece::Bishop(_) => pieces::bishop::get_bishop_move_data(position, board),
-          Piece::Knight(_) => pieces::knight::get_knight_move_data(position, board),
-          Piece::Pawn(_) => pieces::pawn::get_pawn_move_data(position, board, &self.state.last_move),
-          Piece::Queen(_) => pieces::queen::get_queen_move_data(position, board),
-          Piece::Rook(_) => pieces::rook::get_rook_move_data(position, board),
-          Piece::King(_) => pieces::king::get_king_move_data(position, board)
-        }
-      },
-      None => todo!(),
-    }
-  }
 }
 
+#[cfg(test)]
+mod game_tests {
+  use crate::{config::{self, PieceConfig}, position::Position, piece_move::PieceMove, controller::Controller, pieces::piece::Piece, view::View};
+
+use super::{State, Game};
+
+  pub struct TestController {}  
+  impl Controller for TestController {
+    fn get_move(&mut self, _white_turn: bool) -> PieceMove {
+      return PieceMove { start: Position{ row: 0, column: 0 }, end: Position{ row: 0, column: 1 }, promotion: None };
+    }
+  }
+
+  pub struct TestView {}
+  impl View for TestView {
+    fn update_state(&mut self, _board: &Vec<Vec<Option<Piece>>>, _game_state: State) {}
+  }
+
+  #[test]
+  fn test_queen_promotion() {
+    let game_config = config::GameConfig {
+      initial_board: config::BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
+          PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
+          PieceConfig {piece: String::from("pawn"), white: false, column: 3, row: 6},
+          PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 6}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: true
+    };
+
+    let mut game = Game::new(
+      TestController {},
+      TestView {},
+      game_config
+    );
+    // Initialise the view for the players
+    let mut current_board = game.board.get_current_board();
+
+    // Evaluate the starting board and update the game state with initial values
+    game.update_game_state(!game.state.white_turn, &current_board);
+
+    current_board = game.board.get_current_board();
+
+    game.perform_move(
+      PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) }, 
+      current_board
+    );
+
+    current_board = game.board.get_current_board();
+
+    assert!(current_board[7][2].is_some());
+    let mut is_queen = false;
+    if let Piece::Queen(_) = current_board[7][2].as_ref().unwrap() {
+      is_queen = true;
+    }
+    assert!(is_queen);
+  }
+}

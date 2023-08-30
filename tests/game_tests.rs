@@ -1,12 +1,10 @@
-use chess::{game::{Game, GameState}, config::{self, PieceConfig}, piece_move::PieceMove, position::Position};
-
-mod common;
+use chess::{game::{Game, State}, config::{self, PieceConfig}, piece_move::PieceMove, position::Position};
 
 /**
  * Tests a full game run through with the scholars mate checkmate result for white
  */
 #[test]
-fn test_checkmate_scholars_mate() {
+fn game_state_checkmate_scholars_mate() {
   let game_config = config::GameConfig {
     initial_board: config::BoardConfig {
       pieces: vec![
@@ -72,29 +70,32 @@ fn test_checkmate_scholars_mate() {
     PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 6, column: 5 }, promotion: None}
   ];
 
-  let mut game = Game::new(
-    common::test_controller::TestController::new(moves),
-    common::test_view::TestView {},
-    game_config
-  );
+  let mut game = Game::new(game_config);
+  let mut result = game.initialise_game_state();
 
-  // Providing the .run() call completes, it is considered a passed test
-  // Test will panic if the supplied moves do not end in checkmate
-  game.run();
+  assert!(result.is_ok());
+
+  let mut iter = moves.iter();
+  while let Some(piece_move) = iter.next() {
+    result = game.perform_move(piece_move.to_owned());
+  }
+
+  assert!(result.is_ok());
+
+  let game_state_result = result.unwrap();
 
   let mut white_win = false;
-  if let GameState::WhiteWin = game.get_state().game_state {
+  if let State::WhiteWin = game_state_result.game_state.state {
     white_win = true;
   }
   assert!(white_win); // White won by checkmate
 }
 
-
 /**
  * Tests a stalemate situation where the black king has no valid moves 
  */
 #[test]
-fn test_stalemate() {
+fn game_state_stalemate() {
   let game_config = config::GameConfig {
     initial_board: config::BoardConfig {
       pieces: vec![
@@ -117,19 +118,70 @@ fn test_stalemate() {
     PieceMove { start: Position{ row: 5, column: 7 }, end: Position{ row: 6, column: 7 }, promotion: None}
   ];
 
-  let mut game = Game::new(
-    common::test_controller::TestController::new(moves),
-    common::test_view::TestView {},
-    game_config
-  );
+  let mut game = Game::new(game_config);
+  let mut result = game.initialise_game_state();
 
-  // Providing the .run() call completes, it is considered a passed test
-  // Test will panic if the supplied moves do not end in checkmate
-  game.run();
+  assert!(result.is_ok());
+
+  let mut iter = moves.iter();
+  while let Some(piece_move) = iter.next() {
+    result = game.perform_move(piece_move.to_owned());
+  }
+
+  assert!(result.is_ok());
+
+  let game_state_result = result.unwrap();
 
   let mut stalemate = false;
-  if let GameState::Stalemate = game.get_state().game_state {
+  if let State::Stalemate = game_state_result.game_state.state {
     stalemate = true;
   }
   assert!(stalemate); // Game ended with stalemate
+}
+
+
+/**
+ * Tests the game is set to an error state if there are no kings in play. The logic cannot function without a king for each side. 
+ */
+#[test]
+fn game_state_error_no_kings() {
+  let game_config = config::GameConfig {
+    initial_board: config::BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("rook"), white: false, column: 7, row: 5},
+        PieceConfig {piece: String::from("rook"), white: true, column: 1, row: 0}
+      ],
+      rows: 8,
+      columns: 8
+    },
+    white_long_castle: true,
+    white_short_castle: true,
+    black_long_castle: true,
+    black_short_castle: true,
+    white_turn: true
+  };
+
+  let moves = vec![
+    PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None}
+  ];
+
+  let mut game = Game::new(game_config);
+  let mut result = game.initialise_game_state();
+
+  assert!(result.is_ok());
+
+  let mut iter = moves.iter();
+  while let Some(piece_move) = iter.next() {
+    result = game.perform_move(piece_move.to_owned());
+  }
+
+  assert!(result.is_ok());
+
+  let game_state_result = result.unwrap();
+
+  let mut errored = false;
+  if let State::Error = game_state_result.game_state.state {
+    errored = true;
+  }
+  assert!(errored); // Game ended with stalemate
 }

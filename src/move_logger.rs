@@ -3,15 +3,16 @@ use std::collections::HashMap;
 use crate::{
   piece_move::PieceMove, 
   pieces::piece::Piece, 
-  game::{State, GameState}, 
+  game::{GameState, State}, 
   position::Position
 };
 
 
 #[allow(dead_code)] // TODO:Remove
-struct LoggedMove {
+#[derive(Clone)]
+pub struct LoggedMove {
   piece_move: PieceMove,
-  pgn_notation: String
+  pub pgn_notation: String
 }
 
 /**
@@ -21,7 +22,7 @@ struct LoggedMove {
 #[allow(dead_code)] // TODO:Remove
 pub struct MoveLogger {
   initial_board: Vec<Vec<Option<Piece>>>, // The state of the board at the beginning of the game
-  moves: Vec<Vec<LoggedMove>>
+  pub moves: Vec<Vec<LoggedMove>>
 }
 
 impl MoveLogger {
@@ -37,24 +38,12 @@ impl MoveLogger {
    * Adds a LoggedMove to the moves vector.
    * This function should be called after a move has been made and the game state is updated.
    */
-  pub fn add_move(&mut self, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &State) {
+  pub fn add_move(&mut self, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) {
     let last = self.moves.len() - 1;
     if self.moves.len() == 0 || self.moves[last].len() == 2 {
       self.moves.push(vec![LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move}]);
     } else {
       self.moves[last].push(LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move});
-    }
-
-    self.print_logged_moves();
-  }
-
-  // TODO: test function, remove
-  fn print_logged_moves(&self) {
-    for i in 0..self.moves.len() {
-      for j in 0..self.moves[i].len() {
-        print!("{} ", self.moves[i][j].pgn_notation);
-      }
-      println!("");
     }
   }
 }
@@ -62,7 +51,7 @@ impl MoveLogger {
 /**
  * Calculates the standard pgn notation for a given move.
  */
-fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state: &State) -> String {
+fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> String {
   let piece = board[piece_move.end.row][piece_move.end.column].as_ref().unwrap();
 
   // Check for castling move which follow a separate marking structure
@@ -77,7 +66,7 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state:
     }
 
     // Check for piece ambiguity
-    let ambiguity = check_ambiguity(&piece, piece_move, board, &state.valid_moves);
+    let ambiguity = check_ambiguity(&piece, piece_move, board, &game_state.valid_moves);
 
     if ambiguity.0 {
       // Add File for the ambiguity notation
@@ -99,10 +88,10 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, state:
   }
 
   // Add check / checkmate marks, if required
-  match state.game_state {
-    GameState::BlackWin | GameState::WhiteWin => pgn.push('#'),
+  match game_state.state {
+    State::BlackWin | State::WhiteWin => pgn.push('#'),
     _ => {
-      if state.in_check {
+      if game_state.in_check {
         pgn.push('+')
       }
     }

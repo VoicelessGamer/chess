@@ -50,18 +50,96 @@ impl Board {
   }
 
   /**
-   * Function call to clear a given position on the board
-   */
-  pub fn clear_position(&mut self, position: &Position) -> Vec<Vec<Option<Piece>>> {
-    self.board[position.row][position.column] = None;
-
-    return self.get_current_board();
-  }
-
-  /**
    * Returns a copy of the current state of the board pieces
    */
   pub fn get_current_board(&mut self) -> Vec<Vec<Option<Piece>>> {
     return self.board.clone();
+  }
+}
+
+#[cfg(test)]
+mod bridge_tests {
+  use crate::{config::{BoardConfig, PieceConfig}, board::Board, position::Position, pieces::piece::Piece};
+
+  /**
+   * Tests the move_piece function to make sure that the piece was removed from the previous location and the new location contains a matching piece.
+   */
+  #[test]
+  fn test_move_piece() {
+    let board_config = BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+
+    let mut current_board = board.get_current_board();
+
+    assert!(current_board[0][0].is_some());
+    assert!(current_board[1][1].is_none());
+
+    current_board = board.move_piece(&Position {row: 0, column: 0}, &Position {row: 1, column: 1});
+
+    assert!(current_board[0][0].is_none()); // Should now have moved to position (1,1)
+    assert!(current_board[1][1].is_some());
+
+    let piece = current_board[1][1].as_ref().unwrap();
+    let mut is_matching = false;
+    if let Piece::King(true) = piece { // Check specifically for white king
+      is_matching = true;
+    }
+    assert!(is_matching);
+  }
+
+  /**
+   * Tests the set_position correctly sets the supplied position with the given piece.
+   */
+  #[test]
+  fn test_set_position_some() {
+    let board_config = BoardConfig {
+      pieces: vec![],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+
+    let current_board = board.set_position(&Position {row: 0, column: 0}, Some(Piece::Bishop(false)));
+
+    assert!(current_board[0][0].is_some());
+
+    let piece = current_board[0][0].as_ref().unwrap();
+    let mut is_matching = false;
+    if let Piece::Bishop(false) = piece { // Check specifically for black bishop
+      is_matching = true;
+    }
+    assert!(is_matching);
+  }
+
+  /**
+   * Tests that the set_position function correctly removes the piece from the supplied position.
+   */
+  #[test]
+  fn test_set_position_none() {
+    let board_config = BoardConfig {
+      pieces: vec![
+        PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0}
+      ],
+      rows: 8,
+      columns: 8
+    };
+
+    let mut board = Board::new(&board_config);
+
+    let mut current_board = board.get_current_board();
+
+    assert!(current_board[0][0].is_some());
+
+    current_board = board.set_position(&Position {row: 0, column: 0}, None);
+
+    assert!(current_board[0][0].is_none());
   }
 }

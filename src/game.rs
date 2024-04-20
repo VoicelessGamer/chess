@@ -12,8 +12,6 @@ use crate::{
   move_data::MoveData
 };
 
-pub const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
-
 #[derive(Clone, Debug)]
 pub enum State {
   Active,
@@ -37,16 +35,9 @@ pub struct GameState {
 }
 
 impl GameState {
-  /**
-   * 
-   */
   fn check_long_castle(&self) -> bool {
     return (self.white_turn && self.black_long_castle) || (!self.white_turn && self.white_long_castle);
   }
-
-  /**
-   * 
-   */
   fn check_short_castle(&self) -> bool {
     return (self.white_turn && self.black_short_castle) || (!self.white_turn && self.white_short_castle);
   }
@@ -89,13 +80,20 @@ impl Game{
   }
 
   /**
-   * 
+   * Performs an initial update of the game state data
    */
   pub fn initialise_game_state(&mut self) -> Result<GameStateResult, &'static str> {
     let current_board = self.board.get_current_board();
     self.update_game_state(!self.game_state.white_turn, &current_board);
 
     Ok(GameStateResult {board: current_board, move_log: self.move_logger.moves.clone(), game_state: self.game_state.clone()})
+  }
+
+  /**
+   * Returns the current game state
+   */
+  pub fn get_game_state(&mut self) -> GameStateResult {
+    return GameStateResult {board: self.board.get_current_board(), move_log: self.move_logger.moves.clone(), game_state: self.game_state.clone()};
   }
 
   /**
@@ -123,7 +121,7 @@ impl Game{
     } else if en_passant_move.is_some() {
       // If this was an en passant move then remove the taken piece
       let ep_move = en_passant_move.unwrap();
-      current_board = self.board.clear_position(&ep_move);
+      current_board = self.board.set_position(&ep_move, None);
     } else if piece_move.promotion.is_some(){
       // If it is neither a castling move or en passant and the move has a supplied promotion piece
       let promoted_piece = pieces::piece::get_promotion_piece(piece_move.promotion.as_ref().unwrap(), self.game_state.white_turn);
@@ -147,38 +145,6 @@ impl Game{
     self.game_state.white_turn = !self.game_state.white_turn;
 
     return Ok(GameStateResult {board: current_board, move_log: self.move_logger.moves.clone(), game_state: self.game_state.clone()});
-  }
-
-  /**
-   * Validate the player move against the list of calculated valid moves in the game state. 
-   * Returns true if the move can be made.
-   */
-  pub fn validate_move(&mut self, piece_move: &PieceMove) -> bool {
-    let board = self.board.get_current_board();
-
-    if let Some(valid_positions) = self.game_state.valid_moves.get(&piece_move.start) {
-      if valid_positions.contains(&piece_move.end) {
-        // Validate promotion move
-        // Check if the piece is on the furthest or nearest rank based on piece colour
-        if (self.game_state.white_turn && piece_move.end.row == 7) || (!self.game_state.white_turn && piece_move.end.row == 0) {
-          // Check if piece moved was a pawn
-          match board[piece_move.start.row][piece_move.start.column].as_ref().unwrap() {
-            Piece::Pawn(_) => {
-              // Promotion not supplied when it should have been or provided promotion is invalid
-              if piece_move.promotion.is_none() || !VALID_PROMOTIONS.contains(&piece_move.promotion.as_ref().unwrap().as_str()){
-                return false;
-              }
-              return true; // Valid promotion move
-            },
-            _ => return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
-          }
-        }
-
-        // Returns false if a promotion has been provided when it's not a promotion move
-        return piece_move.promotion.is_none(); 
-      }
-    }
-    return false;
   }
 
   /**
@@ -237,6 +203,7 @@ impl Game{
     let mut player_check = false;
 
     // Retrieve all the positional information to determine check state
+    // TODO: Need to add checks for auto-draw situations such as only 2 kings remaining
     // TODO: Lots of cloning of the move data in this loop, must check the effect on performance
     for i in 0..board.len() {
       let row = &board[i];
@@ -394,72 +361,201 @@ impl Game{
   }
 }
 
-// #[cfg(test)]
-// mod game_tests {
-//   use crate::{config::{self, PieceConfig}, position::Position, piece_move::PieceMove, controller::Controller, pieces::piece::Piece, view::View};
+#[cfg(test)]
+mod game_tests {
+  use crate::{config::{BoardConfig, PieceConfig, GameConfig}, piece_move::PieceMove, position::Position};
 
-// use super::{State, Game};
+  use super::Game;
 
-//   pub struct TestController {}  
-//   impl Controller for TestController {
-//     fn get_move(&mut self, _white_turn: bool) -> PieceMove {
-//       return PieceMove { start: Position{ row: 0, column: 0 }, end: Position{ row: 0, column: 1 }, promotion: None };
-//     }
-//   }
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the queen-side rook is moved
+   */
+  #[test]
+  fn long_castling_option_rook_move_white() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 0}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: true
+    };
+  
+    let mut game = Game::new(game_config);
 
-//   pub struct TestView {}
-//   impl View for TestView {
-//     fn update_state(&mut self, _board: &Vec<Vec<Option<Piece>>>, _game_state: State) {}
-//   }
+    let current_board = game.board.get_current_board();
 
-//   /**
-//    * Tests a pawn promotion to a queen.
-//    */
-//   #[test]
-//   fn test_queen_promotion() {
-//     let game_config = config::GameConfig {
-//       initial_board: config::BoardConfig {
-//         pieces: vec![
-//           PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
-//           PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
-//           PieceConfig {piece: String::from("pawn"), white: false, column: 3, row: 6},
-//           PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 6}
-//         ],
-//         rows: 8,
-//         columns: 8
-//       },
-//       white_long_castle: true,
-//       white_short_castle: true,
-//       black_long_castle: true,
-//       black_short_castle: true,
-//       white_turn: true
-//     };
+    game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 0 }, end: Position{ row: 1, column: 0 }, promotion: None}, &current_board);
 
-//     let mut game = Game::new(
-//       TestController {},
-//       TestView {},
-//       game_config
-//     );
-//     // Initialise the view for the players
-//     let mut current_board = game.board.get_current_board();
+    assert!(!game.game_state.white_long_castle);
+    assert!(game.game_state.white_short_castle); // Short castle should still be available
+  }
 
-//     // Evaluate the starting board and update the game state with initial values
-//     game.update_game_state(!game.state.white_turn, &current_board);
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the queen-side rook is moved
+   */
+  #[test]
+  fn long_castling_option_rook_move_black() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 7},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 7},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: false
+    };
+  
+    let mut game = Game::new(game_config);
 
-//     current_board = game.board.get_current_board();
+    let current_board = game.board.get_current_board();
 
-//     game.perform_move(
-//       PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) }, 
-//       current_board
-//     );
+    game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 0 }, end: Position{ row: 6, column: 0 }, promotion: None}, &current_board);
 
-//     current_board = game.board.get_current_board();
+    assert!(!game.game_state.black_long_castle);
+    assert!(game.game_state.black_short_castle); // Short castle should still be available
+  }
 
-//     assert!(current_board[7][2].is_some());
-//     let mut is_queen = false;
-//     if let Piece::Queen(_) = current_board[7][2].as_ref().unwrap() {
-//       is_queen = true;
-//     }
-//     assert!(is_queen);
-//   }
-// }
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the king-side rook is moved
+   */
+  #[test]
+  fn short_castling_option_rook_move_white() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 0}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: true
+    };
+  
+    let mut game = Game::new(game_config);
+
+    let current_board = game.board.get_current_board();
+
+    game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 7 }, end: Position{ row: 1, column: 7 }, promotion: None}, &current_board);
+
+    assert!(game.game_state.white_long_castle); // Long castle should still be available
+    assert!(!game.game_state.white_short_castle); 
+  }
+
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the king-side rook is moved
+   */
+  #[test]
+  fn short_castling_option_rook_move_black() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 7},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 7},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: false
+    };
+  
+    let mut game = Game::new(game_config);
+
+    let current_board = game.board.get_current_board();
+
+    game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 7 }, end: Position{ row: 6, column: 7 }, promotion: None}, &current_board);
+
+    assert!(game.game_state.black_long_castle); // Long castle should still be available
+    assert!(!game.game_state.black_short_castle); 
+  }
+
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the king is moved
+   */
+  #[test]
+  fn castling_options_king_move_white() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 0}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: true
+    };
+  
+    let mut game = Game::new(game_config);
+
+    let current_board = game.board.get_current_board();
+
+    game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 4 }, end: Position{ row: 1, column: 4 }, promotion: None}, &current_board);
+
+    assert!(!game.game_state.white_long_castle);
+    assert!(!game.game_state.white_short_castle); 
+  }
+
+  /**
+   * Tests the update_castling_options function correctly updates the castling options after the king is moved
+   */
+  #[test]
+  fn castling_options_king_move_black() {
+    let game_config = GameConfig {
+      initial_board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 7},
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 7},
+          PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_long_castle: true,
+      white_short_castle: true,
+      black_long_castle: true,
+      black_short_castle: true,
+      white_turn: false
+    };
+  
+    let mut game = Game::new(game_config);
+
+    let current_board = game.board.get_current_board();
+
+    game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 4 }, end: Position{ row: 6, column: 4 }, promotion: None}, &current_board);
+
+    assert!(!game.game_state.black_long_castle);
+    assert!(!game.game_state.black_short_castle); 
+  }
+}

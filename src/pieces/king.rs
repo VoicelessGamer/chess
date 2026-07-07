@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use crate::{
   pieces::piece::Piece, 
-  position::Position,
+  model::Position,
   move_data::MoveData,
-  pieces::piece_util::piece_util::examine_position, piece_move::PieceMove
+  pieces::piece_util::piece_util::examine_position, model::PieceMove
 };
 
 /**
@@ -109,7 +109,7 @@ pub fn get_castle_move(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>) 
 
 #[cfg(test)]
 mod king_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::king::*};
+  use crate::{config::{PieceConfig, self}, board::Board, model::Position, pieces::king::*};
 
   /**
    * Testing the attacks have all been calculated correctly through the get_king_move_data function when all positions are not under attack

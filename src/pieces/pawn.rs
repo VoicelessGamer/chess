@@ -1,8 +1,8 @@
 use crate::{
   pieces::piece::Piece, 
-  position::Position,
+  model::Position,
   move_data::MoveData, 
-  piece_move::PieceMove
+  model::PieceMove
 };
 
 /**
@@ -168,7 +168,7 @@ pub fn get_en_passant_move(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>
 
 #[cfg(test)]
 mod pawn_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::pawn::*};
+  use crate::{config::{PieceConfig, self}, board::Board, model::Position, pieces::pawn::*};
 
   /**
    * Testing the attacks and valid_moves have all been calculated correctly through the get_knight_move_data function

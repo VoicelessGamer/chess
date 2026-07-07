@@ -1,6 +1,6 @@
 use crate::{
   pieces::piece::Piece, 
-  position::Position,
+  model::Position,
   move_data::MoveData,
   pieces::piece_util::piece_util::examine_position
 };
@@ -48,7 +48,7 @@ pub fn get_knight_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) 
 
 #[cfg(test)]
 mod knight_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::knight::*};
+  use crate::{config::{PieceConfig, self}, board::Board, model::Position, pieces::knight::*};
 
   /**
    * Testing the attacks have all been calculated correctly through the get_knight_move_data function when all positions are not under attack

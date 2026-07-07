@@ -1,4 +1,4 @@
-use chess::{game::{Game, State}, config::{self, PieceConfig}, piece_move::PieceMove, position::Position, pieces::piece::Piece};
+use chess::{game::Game, model::{PieceMove, Position, State}, config::{self, PieceConfig}, pieces::piece::Piece};
 
 /**
  * Tests a full game run through with the scholars mate checkmate result for white
@@ -6,7 +6,7 @@ use chess::{game::{Game, State}, config::{self, PieceConfig}, piece_move::PieceM
 #[test]
 fn game_state_checkmate_scholars_mate() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 1},
         PieceConfig {piece: String::from("pawn"), white: true, column: 1, row: 1},
@@ -45,10 +45,14 @@ fn game_state_checkmate_scholars_mate() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
@@ -97,9 +101,9 @@ fn game_state_checkmate_scholars_mate() {
 #[test]
 fn game_state_stalemate() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
-        PieceConfig {piece: String::from("queen"), white: true, column: 7, row: 5},
+        PieceConfig {piece: String::from("queen"), white: true, column: 7, row: 4},
         PieceConfig {piece: String::from("king"), white: true, column: 7, row: 0},
         PieceConfig {piece: String::from("rook"), white: true, column: 1, row: 0},
         PieceConfig {piece: String::from("king"), white: false, column: 0, row: 7},
@@ -107,10 +111,14 @@ fn game_state_stalemate() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
@@ -119,14 +127,16 @@ fn game_state_stalemate() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 5, column: 7 }, end: Position{ row: 6, column: 7 }, promotion: None});
+  result = game.perform_move(PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 4, column: 2 }, promotion: None});
 
   assert!(result.is_ok());
 
   let game_state_result = result.unwrap();
 
+  println!("{:?}", game_state_result.board);
+
   let mut stalemate = false;
-  if let State::Stalemate = game_state_result.game_state.state {
+  if let State::Draw = game_state_result.game_state.state {
     stalemate = true;
   }
   assert!(stalemate); // Game ended with stalemate
@@ -139,7 +149,7 @@ fn game_state_stalemate() {
 #[test]
 fn game_state_error_no_kings() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("rook"), white: false, column: 7, row: 5},
         PieceConfig {piece: String::from("rook"), white: true, column: 1, row: 0}
@@ -147,29 +157,25 @@ fn game_state_error_no_kings() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
   let mut game = Game::new(game_config);
   let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
+  assert!(result.is_err());
 
   result = game.perform_move(PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None});
 
-  assert!(result.is_ok());
-
-  let game_state_result = result.unwrap();
-
-  let mut errored = false;
-  if let State::Error = game_state_result.game_state.state {
-    errored = true;
-  }
-  assert!(errored); // Game ended with stalemate
+  assert!(result.is_err());
 }
 
 
@@ -179,7 +185,7 @@ fn game_state_error_no_kings() {
 #[test]
 fn queen_promotion() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
         PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
@@ -189,10 +195,14 @@ fn queen_promotion() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
@@ -223,7 +233,7 @@ fn queen_promotion() {
 #[test]
 fn rook_promotion() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
         PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
@@ -233,10 +243,14 @@ fn rook_promotion() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
@@ -267,7 +281,7 @@ fn rook_promotion() {
 #[test]
 fn knight_promotion() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
         PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
@@ -277,10 +291,14 @@ fn knight_promotion() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 
@@ -311,7 +329,7 @@ fn knight_promotion() {
 #[test]
 fn bishop_promotion() {
   let game_config = config::GameConfig {
-    initial_board: config::BoardConfig {
+    board: config::BoardConfig {
       pieces: vec![
         PieceConfig {piece: String::from("king"), white: false, column: 7, row: 7},
         PieceConfig {piece: String::from("king"), white: true, column: 0, row: 0},
@@ -321,10 +339,14 @@ fn bishop_promotion() {
       rows: 8,
       columns: 8
     },
-    white_long_castle: true,
-    white_short_castle: true,
-    black_long_castle: true,
-    black_short_castle: true,
+    white_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
+    black_castling: config::CastlingConfig {
+      long_castle: true,
+      short_castle: true
+    },
     white_turn: true
   };
 

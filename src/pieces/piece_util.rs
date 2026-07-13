@@ -1,6 +1,6 @@
 pub mod piece_util {
   use crate::{
-    position::Position, 
+    model::Position, 
     pieces::piece::Piece
   };
 
@@ -46,7 +46,7 @@ pub mod piece_util {
   /**
    * Examines a position on the board and updates the reference vectors accordingly.
    * Returns true if the examined position is also a stopping point, i.e. the position contains a piece
-   * of the same colour, the position contains thee opposing king or an opposing piece is in the position
+   * of the same colour, the position contains the opposing king or an opposing piece is in the position
    * but the pinned option is already Some().
    */
   fn examine_pinnable_position(row:usize, column: usize, board: &Vec<Vec<Option<Piece>>>, is_white: bool,

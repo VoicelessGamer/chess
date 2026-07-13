@@ -1,28 +1,40 @@
 use std::collections::HashMap;
 
 use crate::{
-  piece_move::PieceMove, 
+  model::PieceMove, 
   pieces::piece::Piece, 
-  game::{GameState, State}, 
-  position::Position
+  model::{GameState, State}, 
+  model::Position
 };
 
-
-#[allow(dead_code)] // TODO:Remove
 #[derive(Clone)]
 pub struct LoggedMove {
   piece_move: PieceMove,
-  pub pgn_notation: String
+  white_move: bool,
+  pgn_notation: String
+}
+
+impl LoggedMove {
+  pub fn piece_move(&self) -> &PieceMove {
+    &self.piece_move
+  }
+
+  pub fn white_move(&self) -> bool {
+    self.white_move
+  }
+
+  pub fn pgn_notation(&self) -> &String {
+    &self.pgn_notation
+  }
 }
 
 /**
  * The 'moves' field is a vector of 2-element vectors. 
  * The first element is white's move, the second, black's
  */
-#[allow(dead_code)] // TODO:Remove
 pub struct MoveLogger {
   initial_board: Vec<Vec<Option<Piece>>>, // The state of the board at the beginning of the game
-  pub moves: Vec<Vec<LoggedMove>>
+  move_log: Vec<LoggedMove>
 }
 
 impl MoveLogger {
@@ -30,28 +42,38 @@ impl MoveLogger {
   pub fn new(initial_board: Vec<Vec<Option<Piece>>>) -> Self {
     Self {
       initial_board,
-      moves: vec![vec![]]
+      move_log: vec![]
     }
   }
 
+  pub fn initial_board(&self) -> &Vec<Vec<Option<Piece>>> {
+    &self.initial_board
+  }
+
+  pub fn move_log(&self) -> &Vec<LoggedMove> {
+    &self.move_log
+  }
+
   /**
-   * Adds a LoggedMove to the moves vector.
+   * Adds a LoggedMove to the move_log vector.
    * This function should be called after a move has been made and the game state is updated.
+   * Note: Should potentially change this to returning a Result for better error handling.
    */
-  pub fn add_move(&mut self, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) {
-    let last = self.moves.len() - 1;
-    if self.moves.len() == 0 || self.moves[last].len() == 2 {
-      self.moves.push(vec![LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move}]);
-    } else {
-      self.moves[last].push(LoggedMove {pgn_notation: calculate_pgn(&piece_move, &board, &game_state), piece_move});
+  pub fn add_move(&mut self, white_move: bool, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> bool {
+    let pgn_notation = calculate_pgn(&piece_move, &board, &game_state);
+    if pgn_notation.is_none() {
+      return false;
     }
+
+    self.move_log.push(LoggedMove{piece_move, white_move, pgn_notation: pgn_notation.unwrap()});
+    return true;
   }
 }
 
 /**
  * Calculates the standard pgn notation for a given move.
  */
-fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> String {
+fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> Option<String> {
   let piece = board[piece_move.end.row][piece_move.end.column].as_ref().unwrap();
 
   // Check for castling move which follow a separate marking structure
@@ -66,19 +88,24 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_s
     }
 
     // Check for piece ambiguity
-    let ambiguity = check_ambiguity(&piece, piece_move, board, &game_state.valid_moves);
+    let valid_moves = match game_state.white_turn  {
+      true => &game_state.white_state.valid_moves,
+      false => &game_state.black_state.valid_moves
+    };
+
+    let ambiguity = check_ambiguity(&piece, piece_move, board, valid_moves);
 
     if ambiguity.0 {
       // Add File for the ambiguity notation
-      pgn.push(get_file_mapping(piece_move.start.column));
+      pgn.push(get_file_mapping(piece_move.start.column)?);
     } else if ambiguity.1 {
       // Add Rank for the ambiguity notation
-      pgn.push(get_rank_mapping(piece_move.start.row));
+      pgn.push(get_rank_mapping(piece_move.start.row)?);
     }
 
     // Add the target destination
-    pgn.push(get_file_mapping(piece_move.end.column));
-    pgn.push(get_rank_mapping(piece_move.end.row));
+    pgn.push(get_file_mapping(piece_move.end.column)?);
+    pgn.push(get_rank_mapping(piece_move.end.row)?);
 
     // Add promotion notation, if necessary
     if piece_move.promotion.is_some() {
@@ -91,13 +118,13 @@ fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_s
   match game_state.state {
     State::BlackWin | State::WhiteWin => pgn.push('#'),
     _ => {
-      if game_state.in_check {
+      if (game_state.white_turn && game_state.white_state.in_check) || (!game_state.white_turn && game_state.white_state.in_check) {
         pgn.push('+')
       }
     }
   }
 
-  return pgn;
+  return Some(pgn);
 }
 
 /**
@@ -182,33 +209,137 @@ fn get_piece_abbreviation(piece: &Piece) -> &str {
 /**
  * Returns the alphabetic File notation for the supplied column
  */
-fn get_file_mapping(column: usize) -> char {
+fn get_file_mapping(column: usize) -> Option<char> {
   match column  {
-    0 => 'a',
-    1 => 'b',
-    2 => 'c',
-    3 => 'd',
-    4 => 'e',
-    5 => 'f',
-    6 => 'g',
-    7 => 'h',
-    _ => ' ' // Unreachable option
+    0 => Some('a'),
+    1 => Some('b'),
+    2 => Some('c'),
+    3 => Some('d'),
+    4 => Some('e'),
+    5 => Some('f'),
+    6 => Some('g'),
+    7 => Some('h'),
+    _ => None // Unreachable option
   }
 }
 
 /**
  * Returns the row index, incremented, as a char
  */
-fn get_rank_mapping(row: usize) -> char {
+fn get_rank_mapping(row: usize) -> Option<char> {
   match row  {
-    0 => '1',
-    1 => '2',
-    2 => '3',
-    3 => '4',
-    4 => '5',
-    5 => '6',
-    6 => '7',
-    7 => '8',
-    _ => ' ' // Unreachable option
+    0 => Some('1'),
+    1 => Some('2'),
+    2 => Some('3'),
+    3 => Some('4'),
+    4 => Some('5'),
+    5 => Some('6'),
+    6 => Some('7'),
+    7 => Some('8'),
+    _ => None // Unreachable option
+  }
+}
+
+// TODO: Fill out the test suite for move logger functions.
+
+#[cfg(test)]
+mod move_logger_tests {
+  // use super::MoveLogger;
+}
+
+#[cfg(test)]
+mod util_tests {
+  /**
+   * Tests the get_file_mapping function returns the correct character.
+   */
+  #[test]
+  fn valid_file_mapping() {
+    let mut result = super::get_file_mapping(0);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'a');
+
+    result = super::get_file_mapping(1);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'b');
+
+    result = super::get_file_mapping(2);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'c');
+
+    result = super::get_file_mapping(3);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'd');
+
+    result = super::get_file_mapping(4);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'e');
+
+    result = super::get_file_mapping(5);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'f');
+
+    result = super::get_file_mapping(6);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'g');
+
+    result = super::get_file_mapping(7);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), 'h');
+  }
+
+  /**
+   * Tests the get_file_mapping function returns none for file indices larger than 7.
+   */
+  #[test]
+  fn invalid_file_mapping() {
+    let result = super::get_file_mapping(8);
+    assert!(result.is_none());
+  }
+
+  /**
+   * Tests the get_rank_mapping function returns the correct rank index.
+   */
+  #[test]
+  fn valid_rank_mapping() {
+    let mut result = super::get_rank_mapping(0);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '1');
+
+    result = super::get_rank_mapping(1);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '2');
+
+    result = super::get_rank_mapping(2);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '3');
+
+    result = super::get_rank_mapping(3);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '4');
+
+    result = super::get_rank_mapping(4);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '5');
+
+    result = super::get_rank_mapping(5);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '6');
+
+    result = super::get_rank_mapping(6);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '7');
+
+    result = super::get_rank_mapping(7);
+    assert!(result.is_some());
+    assert_eq!(result.unwrap(), '8');
+  }
+
+  /**
+   * Tests the get_rank_mapping function returns none for rank indices larger than 7.
+   */
+  #[test]
+  fn invalid_rank_mapping() {
+    let result = super::get_rank_mapping(8);
+    assert!(result.is_none());
   }
 }

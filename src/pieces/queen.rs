@@ -1,6 +1,6 @@
 use crate::{
   pieces::piece::Piece, 
-  position::Position,
+  model::Position,
   move_data::MoveData,
   pieces::piece_util::piece_util::examine_line
 };
@@ -59,7 +59,7 @@ pub fn get_queen_move_data(origin: &Position, board: &Vec<Vec<Option<Piece>>>) -
 
 #[cfg(test)]
 mod queen_tests {
-  use crate::{config::{PieceConfig, self}, board::Board, position::Position, pieces::queen::*};
+  use crate::{config::{PieceConfig, self}, board::Board, model::Position, pieces::queen::*};
 
   /**
    * Testing the attacks, defends and pins have all been calculated correctly through the get_queen_move_data function

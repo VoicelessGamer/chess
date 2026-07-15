@@ -5,56 +5,8 @@ use chess::{game::Game, model::{PieceMove, Position, State}, config::{self, Piec
  */
 #[test]
 fn game_state_checkmate_scholars_mate() {
-  let game_config = config::GameConfig {
-    board: config::BoardConfig {
-      pieces: vec![
-        PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 1, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 2, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 3, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 4, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 5, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 6, row: 1},
-        PieceConfig {piece: String::from("pawn"), white: true, column: 7, row: 1},
-        PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
-        PieceConfig {piece: String::from("knight"), white: true, column: 1, row: 0},
-        PieceConfig {piece: String::from("bishop"), white: true, column: 2, row: 0},
-        PieceConfig {piece: String::from("queen"), white: true, column: 3, row: 0},
-        PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
-        PieceConfig {piece: String::from("bishop"), white: true, column: 5, row: 0},
-        PieceConfig {piece: String::from("knight"), white: true, column: 6, row: 0},
-        PieceConfig {piece: String::from("rook"), white: true, column: 7, row: 0},
-
-        PieceConfig {piece: String::from("pawn"), white: false, column: 0, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 1, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 2, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 3, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 4, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 5, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 6, row: 6},
-        PieceConfig {piece: String::from("pawn"), white: false, column: 7, row: 6},
-        PieceConfig {piece: String::from("rook"), white: false, column: 0, row: 7},
-        PieceConfig {piece: String::from("knight"), white: false, column: 1, row: 7},
-        PieceConfig {piece: String::from("bishop"), white: false, column: 2, row: 7},
-        PieceConfig {piece: String::from("queen"), white: false, column: 3, row: 7},
-        PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7},
-        PieceConfig {piece: String::from("bishop"), white: false, column: 5, row: 7},
-        PieceConfig {piece: String::from("knight"), white: false, column: 6, row: 7},
-        PieceConfig {piece: String::from("rook"), white: false, column: 7, row: 7}
-      ],
-      rows: 8,
-      columns: 8
-    },
-    white_castling: config::CastlingConfig {
-      long_castle: true,
-      short_castle: true
-    },
-    black_castling: config::CastlingConfig {
-      long_castle: true,
-      short_castle: true
-    },
-    white_turn: true
-  };
+  // Use the default board layout
+  let game_config: config::GameConfig = Default::default();
 
   // pawn e4   (w)
   // pawn e5   (b)
@@ -81,7 +33,7 @@ fn game_state_checkmate_scholars_mate() {
 
   let mut iter = moves.iter();
   while let Some(piece_move) = iter.next() {
-    result = game.perform_move(piece_move.to_owned());
+    result = game.process_move(piece_move.to_owned());
   }
 
   assert!(result.is_ok());
@@ -127,7 +79,7 @@ fn game_state_stalemate() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 4, column: 2 }, promotion: None});
+  result = game.process_move(PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 4, column: 2 }, promotion: None});
 
   assert!(result.is_ok());
 
@@ -173,7 +125,7 @@ fn game_state_error_no_kings() {
 
   assert!(result.is_err());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None});
+  result = game.process_move(PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None});
 
   assert!(result.is_err());
 }
@@ -211,7 +163,7 @@ fn queen_promotion() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) });
+  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) });
 
   assert!(result.is_ok());
 
@@ -259,7 +211,7 @@ fn rook_promotion() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("R".to_string()) });
+  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("R".to_string()) });
 
   assert!(result.is_ok());
 
@@ -307,7 +259,7 @@ fn knight_promotion() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("N".to_string()) });
+  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("N".to_string()) });
 
   assert!(result.is_ok());
 
@@ -355,7 +307,7 @@ fn bishop_promotion() {
 
   assert!(result.is_ok());
 
-  result = game.perform_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("B".to_string()) });
+  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("B".to_string()) });
 
   assert!(result.is_ok());
 

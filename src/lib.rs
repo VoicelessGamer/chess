@@ -1,4 +1,3 @@
-pub mod controller;
 pub mod game;
 pub mod config;
 pub mod pieces;

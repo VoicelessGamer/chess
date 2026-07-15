@@ -29,6 +29,10 @@ impl Board {
     Self { board }
   }
 
+  pub fn board(&self) -> &Vec<Vec<Option<Piece>>> {
+    &self.board
+  }
+
   /**
    * Function call to place a given piece at a given position
    */
@@ -48,13 +52,13 @@ impl Board {
   pub fn set_position(&mut self, position: &Position, piece: Option<Piece>) -> Vec<Vec<Option<Piece>>> {
     self.board[position.row][position.column] = piece;
 
-    return self.get_current_board();
+    return self.copy_board();
   }
 
   /**
    * Returns a copy of the current state of the board pieces
    */
-  pub fn get_current_board(&mut self) -> Vec<Vec<Option<Piece>>> {
+  pub fn copy_board(&mut self) -> Vec<Vec<Option<Piece>>> {
     return self.board.clone();
   }
 }
@@ -80,7 +84,7 @@ mod board_tests {
 
     let mut board = Board::new(&board_config);
 
-    let mut current_board = board.get_current_board();
+    let mut current_board = board.copy_board();
 
     assert!(current_board[0][0].is_some());
     assert!(current_board[1][1].is_none());
@@ -116,7 +120,7 @@ mod board_tests {
 
     let mut board = Board::new(&board_config);
 
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     assert!(current_board[7][7].is_none());
 
@@ -164,7 +168,7 @@ mod board_tests {
 
     let mut board = Board::new(&board_config);
 
-    let mut current_board = board.get_current_board();
+    let mut current_board = board.copy_board();
 
     assert!(current_board[0][0].is_some());
 

@@ -188,7 +188,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
@@ -249,7 +249,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
@@ -306,7 +306,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     // Check white attack direction
     let pos = Position {row: 1, column: 1};
@@ -340,7 +340,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let last_move = &Some(PieceMove { start: Position { row: 6, column: 1 }, end: Position { row: 4, column: 1 }, promotion: None });
     let valid_moves = get_pawn_move_data(&Position { row: 4, column: 2 }, &current_board, last_move).valid_moves;
@@ -363,7 +363,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let last_move = &Some(PieceMove { start: Position { row: 1, column: 2 }, end: Position { row: 3, column: 2 }, promotion: None });
     let valid_moves = get_pawn_move_data(&Position { row: 3, column: 1 }, &current_board, last_move).valid_moves;
@@ -386,7 +386,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let last_move = &Some(PieceMove { start: Position { row: 6, column: 1 }, end: Position { row: 5, column: 1 }, promotion: None });
     let valid_moves = get_pawn_move_data(&Position { row: 5, column: 2 }, &current_board, last_move).valid_moves;
@@ -409,7 +409,7 @@ mod pawn_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let last_move = &Some(PieceMove { start: Position { row: 1, column: 2 }, end: Position { row: 2, column: 2 }, promotion: None });
     let valid_moves = get_pawn_move_data(&Position { row: 2, column: 1 }, &current_board, last_move).valid_moves;

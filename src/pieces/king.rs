@@ -125,7 +125,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 3, column: 3};
     let move_data = get_king_move_data(&pos, &current_board);
@@ -158,7 +158,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 0, column: 0};
     let move_data = get_king_move_data(&pos, &current_board);
@@ -192,7 +192,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_long_castle_valid(&Position{row:7, column:4}, current_board, &vec![]), true);
   }
@@ -214,7 +214,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:1}];
@@ -237,7 +237,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_long_castle_valid(&Position{row:0, column:4}, current_board, &vec![]), true);
   }
@@ -259,7 +259,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:1}];
@@ -282,7 +282,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_short_castle_valid(&Position{row:0, column:4}, current_board, &vec![]), true);
   }
@@ -302,7 +302,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_short_castle_valid(&Position{row:7, column:4}, current_board, &vec![]), true);
   }
@@ -323,7 +323,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:0}];
@@ -347,7 +347,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:0}];
@@ -371,7 +371,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:7}];
@@ -395,7 +395,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:7}];
@@ -419,7 +419,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_long_castle_valid(&Position{row:0, column:4}, current_board, &vec![]), false);
   }
@@ -440,7 +440,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_long_castle_valid(&Position{row:7, column:4}, current_board, &vec![]), false);
   }
@@ -461,7 +461,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_short_castle_valid(&Position{row:0, column:4}, current_board, &vec![]), false);
   }
@@ -482,7 +482,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     assert_eq!(is_king_short_castle_valid(&Position{row:7, column:4}, current_board, &vec![]), false);
   }
@@ -503,7 +503,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:3}];
@@ -527,7 +527,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:3}];
@@ -551,7 +551,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:5}];
@@ -575,7 +575,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:5}];
@@ -599,7 +599,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:4}];
@@ -623,7 +623,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:4}];
@@ -647,7 +647,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:0, column:4}];
@@ -671,7 +671,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     // Excluding unnecessary positions from attacks vector for simplicity
     let attacks = vec![Position{row:7, column:4}];
@@ -694,7 +694,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:7, column:4}, end: Position{row:7, column:2}, promotion: None };
 
@@ -722,7 +722,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:0, column:4}, end: Position{row:0, column:2}, promotion: None };
 
@@ -750,7 +750,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:7, column:4}, end: Position{row:7, column:6}, promotion: None };
 
@@ -778,7 +778,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:0, column:4}, end: Position{row:0, column:6}, promotion: None };
 
@@ -806,7 +806,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:7, column:4}, end: Position{row:7, column:3}, promotion: None };
 
@@ -830,7 +830,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:0, column:4}, end: Position{row:0, column:3}, promotion: None };
 
@@ -854,7 +854,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:7, column:4}, end: Position{row:7, column:5}, promotion: None };
 
@@ -878,7 +878,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:0, column:4}, end: Position{row:0, column:5}, promotion: None };
 
@@ -903,7 +903,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:6, column:0}, end: Position{row:5, column:0}, promotion: None };
 
@@ -928,7 +928,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:1, column:0}, end: Position{row:2, column:0}, promotion: None };
 
@@ -953,7 +953,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:6, column:0}, end: Position{row:5, column:0}, promotion: None };
 
@@ -978,7 +978,7 @@ mod king_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = &board.get_current_board();
+    let current_board = &board.copy_board();
 
     let piece_move = PieceMove { start: Position{row:1, column:0}, end: Position{row:2, column:0}, promotion: None };
 

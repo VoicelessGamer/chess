@@ -9,6 +9,8 @@ use crate::{
   move_data::MoveData
 };
 
+pub const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
+
 pub struct Game {
   board: Board,
   pub game_state: GameState
@@ -58,7 +60,7 @@ impl Game {
    * Performs an initial update of the game state data
    */
   pub fn initialise_game_state(&mut self) -> Result<GameStateResult, String> {
-    let current_board = self.board.get_current_board();
+    let current_board = self.board.copy_board();
     self.update_game_state(&current_board);
 
     // Game state not valid
@@ -73,19 +75,19 @@ impl Game {
    * Returns the current game state
    */
   pub fn get_game_state(&mut self) -> GameStateResult {
-    return GameStateResult {board: self.board.get_current_board(), game_state: self.game_state.clone()};
+    return GameStateResult {board: self.board.copy_board(), game_state: self.game_state.clone()};
   }
 
   /**
    * Given a piece move, validates the move, updates the board and the game's state to reflect the changes
    */
-  pub fn perform_move(&mut self, piece_move: PieceMove) -> Result<GameStateResult, String> {
+  pub fn process_move(&mut self, piece_move: PieceMove) -> Result<GameStateResult, String> {
     // self.game_state.state = State::Draw;
     if self.game_state.state != State::Active {
       return Err(format!("Game state is {:?}. Cannot perform any further actions.", self.game_state.state));
     } 
 
-    let mut current_board = self.board.get_current_board();
+    let mut current_board = self.board.copy_board();
 
 
     if !self.validate_move(&piece_move) {
@@ -156,6 +158,7 @@ impl Game {
    * Returns true if the movement is valid.
    */
   fn validate_move(&self, piece_move: &PieceMove) -> bool {
+
     // Check move is valid using the list of valid moves calculated on the previous turn
     let valid_moves = match self.game_state.white_turn {
       true => &self.game_state.white_state.valid_moves,
@@ -172,7 +175,19 @@ impl Game {
       return false;
     }
 
-    return true;
+    // Validate promotion move
+    match self.board.board()[piece_move.start.row][piece_move.start.column].as_ref().unwrap() {
+      Piece::Pawn(_) => {// Check if piece moved was a pawn
+        // Check if the piece is on the furthest or nearest rank based on piece colour
+        if (self.game_state.white_turn && piece_move.end.row == 7) || (!self.game_state.white_turn && piece_move.end.row == 0) {
+          // Promotion not supplied when it should have been or provided promotion is invalid
+          return piece_move.promotion.is_some() && VALID_PROMOTIONS.contains(&piece_move.promotion.as_ref().unwrap().as_str());
+        }
+
+        return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
+      },
+      _ => return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
+    }
   }
 
   /**
@@ -681,7 +696,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the perform_move function returns an error when the game is in an errored state.
+   * Tests the process_move function returns an error when the game is in an errored state.
    */
   #[test]
   fn move_attempt_on_errored_game() {
@@ -710,11 +725,11 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 5, column: 2}, end: Position {row: 6, column: 2}, promotion: None};
 
-    assert!(game.perform_move(piece_move).is_err());
+    assert!(game.process_move(piece_move).is_err());
   }
 
   /**
-   * Tests the perform_move function returns an error when the provided move is invalid.
+   * Tests the process_move function returns an error when the provided move is invalid.
    */
   #[test]
   fn invalid_move_attempt() {
@@ -748,11 +763,11 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 5, column: 2}, end: Position {row: 6, column: 1}, promotion: None};
 
-    assert!(game.perform_move(piece_move).is_err());
+    assert!(game.process_move(piece_move).is_err());
   }
 
   /**
-   * Tests the perform_move function with a long castle move, ensuring the board is updated correctly.
+   * Tests the process_move function with a long castle move, ensuring the board is updated correctly.
    */
   #[test]
   fn long_castle_move_performed() {
@@ -786,7 +801,7 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 0, column: 4}, end: Position {row: 0, column: 2}, promotion: None};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
     assert!(result.is_ok());
 
@@ -800,7 +815,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the perform_move function with a short castle move, ensuring the board is updated correctly.
+   * Tests the process_move function with a short castle move, ensuring the board is updated correctly.
    */
   #[test]
   fn short_castle_move_performed() {
@@ -834,7 +849,7 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 0, column: 4}, end: Position {row: 0, column: 6}, promotion: None};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
     assert!(result.is_ok());
 
@@ -848,7 +863,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the perform_move function with a long castle move, ensuring the board is updated correctly.
+   * Tests the process_move function with a long castle move, ensuring the board is updated correctly.
    */
   #[test]
   fn non_pawn_promotion_ignored() {
@@ -883,19 +898,13 @@ mod game_tests {
     // Invalid promotion field added
     let piece_move = PieceMove{start: Position {row: 0, column: 7}, end: Position {row: 7, column: 7}, promotion: Some("Q".to_string())};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
-    assert!(result.is_ok());
-
-    let game_result = result.unwrap();
-
-    assert!(game_result.board[7][7].is_some());
-    
-    assert!(game_result.board[7][7].as_ref().unwrap() == &Piece::Rook(true));
+    assert!(result.is_err());
   }
 
   /**
-   * Tests the perform_move function with an en passant move, ensuring the board is updated correctly.
+   * Tests the process_move function with an en passant move, ensuring the board is updated correctly.
    */
   #[test]
   fn en_passant_performed() {
@@ -931,7 +940,7 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 4, column: 1}, end: Position {row: 5, column: 0}, promotion: None};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
     assert!(result.is_ok());
 
@@ -944,7 +953,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the perform_move function to ensure it rotates the current active player after the move has been performed.
+   * Tests the process_move function to ensure it rotates the current active player after the move has been performed.
    */
   #[test]
   fn turn_alternation() {
@@ -981,14 +990,14 @@ mod game_tests {
 
     let mut piece_move = PieceMove{start: Position {row: 2, column: 3}, end: Position {row: 3, column: 3}, promotion: None};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
     assert!(result.is_ok());
     assert!(game.game_state.white_turn == false);
 
     piece_move = PieceMove{start: Position {row: 5, column: 0}, end: Position {row: 4, column: 0}, promotion: None};
 
-    let result = game.perform_move(piece_move);
+    let result = game.process_move(piece_move);
 
     assert!(result.is_ok());
     assert!(game.game_state.white_turn == true);
@@ -1174,7 +1183,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 0 }, end: Position{ row: 1, column: 0 }, promotion: None}, &current_board);
 
@@ -1210,7 +1219,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 0 }, end: Position{ row: 6, column: 0 }, promotion: None}, &current_board);
 
@@ -1246,7 +1255,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 7 }, end: Position{ row: 1, column: 7 }, promotion: None}, &current_board);
 
@@ -1282,7 +1291,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 7 }, end: Position{ row: 6, column: 7 }, promotion: None}, &current_board);
 
@@ -1318,7 +1327,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 0, column: 4 }, end: Position{ row: 1, column: 4 }, promotion: None}, &current_board);
 
@@ -1354,7 +1363,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     game.update_castling_options(&PieceMove { start: Position{ row: 7, column: 4 }, end: Position{ row: 6, column: 4 }, promotion: None}, &current_board);
 
@@ -1388,7 +1397,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let mut current_board = game.board.get_current_board();
+    let mut current_board = game.board.copy_board();
 
     game.update_game_state(&mut current_board);
 
@@ -1423,7 +1432,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let mut current_board = game.board.get_current_board();
+    let mut current_board = game.board.copy_board();
 
     game.update_game_state(&mut current_board);
 
@@ -1458,7 +1467,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let mut current_board = game.board.get_current_board();
+    let mut current_board = game.board.copy_board();
 
     game.update_game_state(&mut current_board);
 
@@ -1493,7 +1502,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let mut current_board = game.board.get_current_board();
+    let mut current_board = game.board.copy_board();
 
     game.update_game_state(&mut current_board);
 
@@ -1528,7 +1537,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let mut current_board = game.board.get_current_board();
+    let mut current_board = game.board.copy_board();
 
     game.update_game_state(&mut current_board);
 
@@ -1563,7 +1572,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     let positional_data = game.collect_positional_data(&current_board).unwrap();
 
@@ -1721,7 +1730,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     let positional_data = PositionalData {
       white_moves: vec![
@@ -1807,7 +1816,7 @@ mod game_tests {
   
     let mut game = Game::new(game_config);
 
-    let current_board = game.board.get_current_board();
+    let current_board = game.board.copy_board();
 
     let positional_data = PositionalData {
       white_moves: vec![
@@ -1850,6 +1859,126 @@ mod game_tests {
 
     let king_move_list = valid_moves.get(&Position{row: 7, column: 0});
     assert!(king_move_list.unwrap()[0] == Position{row: 6, column: 0});
+  }
+
+  /**
+   * Tests the validate_move_selection function correctly identifies the provided move is valid pawn promotion and returns true.
+   */
+  #[test]
+  fn valid_promotion_move_selection() {
+    let game_config = GameConfig {
+      board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 6},
+          PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      black_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      white_turn: true
+    };
+
+    let mut game = Game::new(game_config);
+
+    let mut white_moves = HashMap::new();
+    white_moves.insert(Position{row: 6, column: 0}, vec![Position{row: 7, column: 0}]);
+
+    game.game_state.white_state.valid_moves = white_moves;
+
+    let move_result = game.validate_move(
+      &PieceMove {start: Position{row: 6, column: 0}, end: Position{row: 7, column: 0}, promotion: Some("Q".to_string())}
+    );
+
+    assert!(move_result);
+  }
+
+  /**
+   * Tests the validate_move_selection function with a promotion provided on a pawn move that doesn't reach the required rank. Should return false.
+   */
+  #[test]
+  fn invalid_promotion_move_selection() {
+    let game_config = GameConfig {
+      board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 5},
+          PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      black_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      white_turn: true
+    };
+
+    let mut game = Game::new(game_config);
+
+    let mut white_moves = HashMap::new();
+    white_moves.insert(Position{row: 5, column: 0}, vec![Position{row: 6, column: 0}]);
+
+    game.game_state.white_state.valid_moves = white_moves;
+
+    let move_result = game.validate_move(
+      &PieceMove {start: Position{row: 5, column: 0}, end: Position{row: 6, column: 0}, promotion: Some("Q".to_string())}
+    );
+
+    assert!(!move_result);
+  }
+
+  /**
+   * Tests the validate_move_selection function with a promotion provided on a non-pawn move. Should return false.
+   */
+  #[test]
+  fn invalid_piece_promotion_move_selection() {
+    let game_config = GameConfig {
+      board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 6},
+          PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      black_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      white_turn: true
+    };
+
+    let mut game = Game::new(game_config);
+
+    let mut white_moves = HashMap::new();
+    white_moves.insert(Position{row: 6, column: 0}, vec![Position{row: 7, column: 0}]);
+
+    game.game_state.white_state.valid_moves = white_moves;
+
+    let move_result = game.validate_move(
+      &PieceMove {start: Position{row: 6, column: 0}, end: Position{row: 7, column: 0}, promotion: Some("Q".to_string())}
+    );
+
+    assert!(!move_result);
   }
 }
 

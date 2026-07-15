@@ -79,7 +79,7 @@ mod queen_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 3, column: 5};
     let move_data = get_queen_move_data(&pos, &current_board);
@@ -131,7 +131,7 @@ mod queen_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 0, column: 0};
     let move_data = get_queen_move_data(&pos, &current_board);

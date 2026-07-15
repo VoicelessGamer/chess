@@ -66,7 +66,7 @@ mod rook_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 2, column: 4};
     let move_data = get_rook_move_data(&pos, &current_board);
@@ -107,7 +107,7 @@ mod rook_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 2, column: 0};
     let move_data = get_rook_move_data(&pos, &current_board);

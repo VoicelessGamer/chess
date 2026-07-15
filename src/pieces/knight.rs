@@ -64,7 +64,7 @@ mod knight_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 3, column: 3};
     let move_data = get_knight_move_data(&pos, &current_board);
@@ -97,7 +97,7 @@ mod knight_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 1, column: 2};
     let move_data = get_knight_move_data(&pos, &current_board);
@@ -134,7 +134,7 @@ mod knight_tests {
     };
 
     let mut board = Board::new(&board_config);
-    let current_board = board.get_current_board();
+    let current_board = board.copy_board();
 
     let pos = Position {row: 1, column: 0};
     let move_data = get_knight_move_data(&pos, &current_board);

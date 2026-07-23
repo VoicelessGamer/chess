@@ -2,7 +2,7 @@ pub mod game;
 pub mod config;
 pub mod pieces;
 pub mod model;
-pub mod move_logger;
+pub mod pgn_notation_util;
 
 mod board;
 mod move_data;

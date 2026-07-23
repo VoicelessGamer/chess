@@ -11,6 +11,26 @@ use crate::{
 
 pub const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
 
+struct StateChangeResult {
+  pub state: State,
+  pub white_check: bool,
+  pub black_check: bool,
+  pub white_moves: HashMap<Position, Vec<Position>>,
+  pub black_moves: HashMap<Position, Vec<Position>>
+}
+
+impl Default for StateChangeResult {
+  fn default() -> Self {
+    Self { 
+      state: State::Active, 
+      white_check: false,
+      black_check: false,
+      white_moves: HashMap::new(),
+      black_moves: HashMap::new()
+    }
+  }
+}
+
 pub struct Game {
   board: Board,
   pub game_state: GameState
@@ -29,46 +49,40 @@ impl Game {
    */
   pub fn new(game_config: GameConfig) -> Self {
     let board = Board::new(&game_config.board);
+
+    let white_castling_state = CastlingState {
+      long_castle: game_config.white_castling.long_castle,
+      short_castle: game_config.white_castling.short_castle
+    };
+    let black_castling_state = CastlingState {
+      long_castle: game_config.black_castling.long_castle,
+      short_castle: game_config.black_castling.short_castle
+    };
+
+    let initial_state = match game_config.white_turn {
+        true => get_state_change(board.board(), game_config.white_turn, &white_castling_state, &None),
+        false => get_state_change(board.board(), game_config.white_turn, &black_castling_state, &None)
+    };
+
     Self {
       board,
       game_state: GameState {
-        state: State::Active,
+        state: initial_state.state,
         white_turn: game_config.white_turn,
         white_state: PlayerState {
-          in_check: false,
-          castling_state: CastlingState {
-            long_castle: game_config.white_castling.long_castle,
-            short_castle: game_config.white_castling.short_castle
-          },
-          valid_moves: HashMap::new(),
+          in_check: initial_state.white_check,
+          castling_state: white_castling_state,
+          valid_moves: initial_state.white_moves,
           last_move: None
         },
         black_state: PlayerState {
-          in_check: false,
-          castling_state: CastlingState {
-            long_castle: game_config.black_castling.long_castle,
-            short_castle: game_config.black_castling.short_castle
-          },
-          valid_moves: HashMap::new(),
+          in_check: initial_state.black_check,
+          castling_state: black_castling_state,
+          valid_moves: initial_state.black_moves,
           last_move: None
         }
       }
     }
-  }
-
-  /**
-   * Performs an initial update of the game state data
-   */
-  pub fn initialise_game_state(&mut self) -> Result<GameStateResult, String> {
-    let current_board = self.board.copy_board();
-    self.update_game_state(&current_board);
-
-    // Game state not valid
-    if self.game_state.state == State::Error {
-      return Err("Game state initialised into an error state.".to_string());
-    }
-
-    Ok(GameStateResult {board: current_board, game_state: self.game_state.clone()})
   }
 
   /**
@@ -148,7 +162,20 @@ impl Game {
     self.game_state.white_turn = !self.game_state.white_turn;
 
     // Evaluate the new board and update the game state
-    self.update_game_state(&current_board);
+    // let state_change = 
+    self.update_game_state(match self.game_state.white_turn {
+        true => get_state_change(
+          &current_board, true, 
+          &self.game_state.white_state.castling_state, 
+          &self.game_state.black_state.last_move
+        ),
+        false => get_state_change(
+          &current_board, 
+          false, 
+          &self.game_state.black_state.castling_state, 
+          &self.game_state.white_state.last_move
+        ),
+    });
 
     return Ok(GameStateResult {board: current_board, game_state: self.game_state.clone()});
   }
@@ -230,197 +257,207 @@ impl Game {
   }
 
   /**
-   * Evaluates the current position of the board, searching for a check or a
-   * checkmate on the current player. This function will update the state of 
-   * check for the current player and the new game state.
+   * Updates the current state with the state changes. 
    */
-  fn update_game_state(&mut self, board: &Vec<Vec<Option<Piece>>>) {
-    let collected_data = self.collect_positional_data(board);
-    if collected_data.is_none() {
-      self.game_state.state = State::Error;
-      return;
-    }
-
-    let mut positional_data: PositionalData = collected_data.unwrap();
-
-    self.game_state.black_state.in_check = false;
-    self.game_state.white_state.in_check = false;
-
-    // If either king was not found then there has been an error in gameplay/logic, cannot continue
-    if positional_data.white_king_index == -1 || positional_data.black_king_index == -1 {
-      self.game_state.state = State::Error;
-      return;
-    }
-
-    match self.game_state.white_turn {
-      true => 
-        update_king_valid_moves(&mut positional_data.white_moves[positional_data.white_king_index as usize], &positional_data.black_moves),
-      false => 
-        update_king_valid_moves(&mut positional_data.black_moves[positional_data.black_king_index as usize], &positional_data.white_moves),
-    }
-
-    // These moves will be used to validate the next input from the player
-    let mut valid_moves = HashMap::new();
-
-    // Determine state of check for the current players' king
-    if self.is_checked(&positional_data) {
-      // Update the check flag for the current player
-      match self.game_state.white_turn {
-        true => self.game_state.white_state.in_check = true,
-        false => self.game_state.black_state.in_check = true,
-      };
-
-      // Check for game win scenario
-      // Collect all the valid moves for each of the current players' pieces
-      valid_moves = self.collect_checked_valid_moves(&positional_data, &board);
-
-      if valid_moves.is_empty() {
-        self.game_state.state = match self.game_state.white_turn {
-          true => State::BlackWin,
-          false => State::WhiteWin
-        };
-      }
-    } else {
-      // Not in check or checkmate position
-      // Collect all the valid moves for each of the current players' pieces
-      let players_move_data: &Vec<MoveData>;
-      let pinned_positions: HashMap<Position, Position>;
-      match self.game_state.white_turn {
-        true => {
-          players_move_data = &positional_data.white_moves;
-          pinned_positions = get_pinned_position_map(&positional_data.black_moves);
-        }
-        false => {
-          players_move_data = &positional_data.black_moves;
-          pinned_positions = get_pinned_position_map(&positional_data.white_moves);
-        }
-      };
-
-      for move_data in players_move_data {
-        if move_data.valid_moves.is_empty() {
-          continue;          
-        }
-
-        // Remove invalid moves due to any pins
-        if pinned_positions.contains_key(&move_data.position) {
-          valid_moves.insert(move_data.position.clone(), adjust_pinned_valid_moves(&move_data, pinned_positions.get(&move_data.position).unwrap(), board));
-        } else {
-          valid_moves.insert(move_data.position.clone(), move_data.valid_moves.clone()); 
-        }
-      }
-
-      // If valid_moves is empty -> not in check or checkmate and has no valid moves, so stalemate
-      // or 
-      // If both players have insufficent pieces to force a checkmate then it's a draw
-      if valid_moves.is_empty() || 
-          (!has_sufficient_material(&positional_data.white_moves, &board) && !has_sufficient_material(&positional_data.black_moves, &board)) {
-        self.game_state.state = State::Draw;
-      }
-    }
-
-    //Update the valid moves list for the current player
-    match self.game_state.white_turn {
-      true => self.game_state.white_state.valid_moves = valid_moves,
-      false => self.game_state.black_state.valid_moves = valid_moves,
-    };
+  fn update_game_state(&mut self, state_change: StateChangeResult) {
+    self.game_state.state = state_change.state;
+    self.game_state.white_state.in_check = state_change.white_check;
+    self.game_state.white_state.valid_moves = state_change.white_moves;
+    self.game_state.black_state.in_check = state_change.black_check;
+    self.game_state.black_state.valid_moves = state_change.black_moves;
   }
 
-  /**
-   * Collects the positional and movement data for all pieces on the board and returns the data in a PositionalData struct.
-   * NOTE: This gathers the potential positional movement data for each piece on the board based on the movement pattern for the individual piece.
-   * The does not take into account any other piece, i.e. whether itself is pinned to the king, or if the king piece cannot move due to attacked positions.
-   */
-  fn collect_positional_data(&mut self, board: &Vec<Vec<Option<Piece>>>) -> Option<PositionalData> {
-    let mut white_moves: Vec<MoveData> = vec![]; // List of the move data for each white piece on the board (includes king)
-    let mut black_moves: Vec<MoveData> = vec![]; // List of the move data for each black piece on the board (includes king)
-    let mut white_king_index: i32 = -1; // Index to the move data for the white king in the white_moves vec
-    let mut black_king_index: i32 = -1; // Index to the move data for the black king in the black_moves vec
-    
-    // Retrieve all the positional and move information for each piece on the board to determine check state
-    for i in 0..board.len() {
-      let row = &board[i];
-      for j in 0..row.len() {
-        let piece = &row[j];
-        match piece {
-          None => continue,
-          Some(chess_piece) => {
-            let position = Position {row: i, column: j};
+}
 
-            
-            if chess_piece.is_white() {
-              let move_data: MoveData;
-              if self.game_state.white_turn {
-                move_data = pieces::get_move_data(&position, board, &self.game_state.black_state.last_move)?;
-              } else {
-                // Passing None for the last_move field as it's not needed when calculating positional data for the opposing side's pieces
-                // Passing the last move here would cause an issue with the en passant calculations due to the piece no longe being on the board
-                move_data = pieces::get_move_data(&position, board, &None)?;
-              }
-              white_moves.push(move_data);
 
-              if chess_piece.is_king() {
-                white_king_index = (white_moves.len() - 1) as i32;
-              }
+/**
+ * Evaluates the current position of the board, searching for a check or a
+ * checkmate on the current player. This function will update the state of 
+ * check for the current player and the new game state.
+ */
+fn get_state_change(board: &Vec<Vec<Option<Piece>>>, white_turn: bool, castling_state: &CastlingState, opponent_last_move: &Option<PieceMove>) -> StateChangeResult {
+  let mut state_change_result = StateChangeResult::default();
+
+  let collected_data = collect_positional_data(board, white_turn, opponent_last_move);
+  if collected_data.is_none() {
+    state_change_result.state = State::Error;
+    return state_change_result;
+  }
+
+  let mut positional_data: PositionalData = collected_data.unwrap();
+
+  // If either king was not found then there has been an error in gameplay/logic, cannot continue
+  if positional_data.white_king_index == -1 || positional_data.black_king_index == -1 {
+    state_change_result.state = State::Error;
+    return state_change_result;
+  }
+
+  match white_turn {
+    true => 
+      update_king_valid_moves(&mut positional_data.white_moves[positional_data.white_king_index as usize], &positional_data.black_moves),
+    false => 
+      update_king_valid_moves(&mut positional_data.black_moves[positional_data.black_king_index as usize], &positional_data.white_moves),
+  }
+
+  // These moves will be used to validate the next input from the player
+  let mut valid_moves = HashMap::new();
+
+  // Determine state of check for the current players' king
+  if is_checked(white_turn, &positional_data) {
+    // Update the check flag for the current player
+    match white_turn {
+      true => state_change_result.white_check = true,
+      false => state_change_result.black_check = true,
+    };
+
+    // Check for game win scenario
+    // Collect all the valid moves for each of the current players' pieces
+    valid_moves = match white_turn {
+      true => {
+        collect_valid_moves(
+          positional_data.white_moves.clone(), 
+          positional_data.white_king_index as usize,
+          castling_state,
+          positional_data.black_moves.clone(), 
+          board
+        )
+      },
+      false => {
+        collect_valid_moves(
+          positional_data.black_moves.clone(), 
+          positional_data.black_king_index as usize,
+          castling_state,
+          positional_data.white_moves.clone(), 
+          board
+        )
+      }
+    };
+
+    if valid_moves.is_empty() {
+      state_change_result.state = match white_turn {
+        true => State::BlackWin,
+        false => State::WhiteWin
+      };
+    }
+  } else {
+    // Not in check or checkmate position
+    // Collect all the valid moves for each of the current players' pieces
+    let players_move_data: &Vec<MoveData>;
+    let pinned_positions: HashMap<Position, Position>;
+    match white_turn {
+      true => {
+        players_move_data = &positional_data.white_moves;
+        pinned_positions = get_pinned_position_map(&positional_data.black_moves);
+      }
+      false => {
+        players_move_data = &positional_data.black_moves;
+        pinned_positions = get_pinned_position_map(&positional_data.white_moves);
+      }
+    };
+
+    for move_data in players_move_data {
+      if move_data.valid_moves.is_empty() {
+        continue;          
+      }
+
+      // Remove invalid moves due to any pins
+      if pinned_positions.contains_key(&move_data.position) {
+        valid_moves.insert(move_data.position.clone(), adjust_pinned_valid_moves(&move_data, pinned_positions.get(&move_data.position).unwrap(), board));
+      } else {
+        valid_moves.insert(move_data.position.clone(), move_data.valid_moves.clone()); 
+      }
+    }
+
+    // If valid_moves is empty -> not in check or checkmate and has no valid moves, so stalemate
+    // or 
+    // If both players have insufficent pieces to force a checkmate then it's a draw
+    if valid_moves.is_empty() || 
+        (!has_sufficient_material(&positional_data.white_moves, &board) && !has_sufficient_material(&positional_data.black_moves, &board)) {
+      state_change_result.state = State::Draw;
+    }
+  }
+
+  //Update the valid moves list for the current player
+  match white_turn {
+    true => state_change_result.white_moves = valid_moves,
+    false => state_change_result.black_moves = valid_moves,
+  };
+
+  return state_change_result;
+}
+
+/**
+ * Collects the positional and movement data for all pieces on the board and returns the data in a PositionalData struct.
+ * NOTE: This gathers the potential positional movement data for each piece on the board based on the movement pattern for the individual piece.
+ * The does not take into account any other piece, i.e. whether itself is pinned to the king, or if the king piece cannot move due to attacked positions.
+ */
+fn collect_positional_data(board: &Vec<Vec<Option<Piece>>>, white_turn: bool, opponent_last_move: &Option<PieceMove>) -> Option<PositionalData> {
+  let mut white_moves: Vec<MoveData> = vec![]; // List of the move data for each white piece on the board (includes king)
+  let mut black_moves: Vec<MoveData> = vec![]; // List of the move data for each black piece on the board (includes king)
+  let mut white_king_index: i32 = -1; // Index to the move data for the white king in the white_moves vec
+  let mut black_king_index: i32 = -1; // Index to the move data for the black king in the black_moves vec
+  
+  // Retrieve all the positional and move information for each piece on the board to determine check state
+  for i in 0..board.len() {
+    let row = &board[i];
+    for j in 0..row.len() {
+      let piece = &row[j];
+      match piece {
+        None => continue,
+        Some(chess_piece) => {
+          let position = Position {row: i, column: j};
+
+          
+          if chess_piece.is_white() {
+            let move_data: MoveData;
+            if white_turn {
+              move_data = pieces::get_move_data(&position, board, opponent_last_move)?;
             } else {
-              let move_data: MoveData;
-              if self.game_state.white_turn {
-                // Passing None for the last_move field as it's not needed when calculating positional data for the opposing side's pieces
-                // Passing the last move here would cause an issue with the en passant calculations due to the piece no longe being on the board
-                move_data = pieces::get_move_data(&position, board, &None)?;
-              } else {
-                move_data = pieces::get_move_data(&position, board, &self.game_state.white_state.last_move)?;
-              }
-              black_moves.push(move_data);
+              // Passing None for the last_move field as it's not needed when calculating positional data for the opposing side's pieces
+              // Passing the last move here would cause an issue with the en passant calculations due to the piece no longe being on the board
+              move_data = pieces::get_move_data(&position, board, &None)?;
+            }
+            white_moves.push(move_data);
 
-              if chess_piece.is_king() {
-                black_king_index = (black_moves.len() - 1) as i32;
-              }
+            if chess_piece.is_king() {
+              white_king_index = (white_moves.len() - 1) as i32;
+            }
+          } else {
+            let move_data: MoveData;
+            if white_turn {
+              // Passing None for the last_move field as it's not needed when calculating positional data for the opposing side's pieces
+              // Passing the last move here would cause an issue with the en passant calculations due to the piece no longe being on the board
+              move_data = pieces::get_move_data(&position, board, &None)?;
+            } else {
+              move_data = pieces::get_move_data(&position, board, opponent_last_move)?;
+            }
+            black_moves.push(move_data);
+
+            if chess_piece.is_king() {
+              black_king_index = (black_moves.len() - 1) as i32;
             }
           }
         }
       }
     }
-
-    return Some(PositionalData {
-      white_moves,
-      black_moves,
-      white_king_index,
-      black_king_index
-    })
   }
 
-  /**
-   * Returns true if the current players' king is currently under attack by any opposing piece.
-   */
-  fn is_checked(&self, positional_data: &PositionalData) -> bool {
-    if self.game_state.white_turn {
-      return king_is_attacked(&positional_data.black_moves);
-    } else {
-      return king_is_attacked(&positional_data.white_moves);
-    }
-  }
+  return Some(PositionalData {
+    white_moves,
+    black_moves,
+    white_king_index,
+    black_king_index
+  })
+}
 
-  /**
-   * Returns a map of all the valid move positions for each of the current player's pieces.
-   */
-  fn collect_checked_valid_moves(&self, positional_data: &PositionalData, board: &Vec<Vec<Option<Piece>>>) -> HashMap<Position, Vec<Position>> {
-    if self.game_state.white_turn {
-      return collect_valid_moves(
-        positional_data.white_moves.clone(), 
-        positional_data.white_king_index as usize,
-        &self.game_state.white_state.castling_state,
-        positional_data.black_moves.clone(), 
-        board
-      );
-    } else {
-      return collect_valid_moves(
-        positional_data.black_moves.clone(), 
-        positional_data.black_king_index as usize,
-        &self.game_state.black_state.castling_state,
-        positional_data.white_moves.clone(), 
-        board
-      );
-    }
+/**
+ * Returns true if the current players' king is currently under attack by any opposing piece.
+ */
+fn is_checked(white_turn: bool, positional_data: &PositionalData) -> bool {
+  if white_turn {
+    return king_is_attacked(&positional_data.black_moves);
+  } else {
+    return king_is_attacked(&positional_data.white_moves);
   }
 }
 
@@ -662,12 +699,12 @@ fn has_sufficient_material(moves: &Vec<MoveData>, board: &Vec<Vec<Option<Piece>>
 mod game_tests {
   use std::collections::HashMap;
 
-  use crate::{config::{BoardConfig, CastlingConfig, GameConfig, PieceConfig}, game::{PositionalData, State}, move_data::MoveData, model::PieceMove, pieces::piece::Piece, model::Position};
+  use crate::{config::{BoardConfig, CastlingConfig, GameConfig, PieceConfig}, game::State, model::{PieceMove, Position}, pieces::piece::Piece};
 
   use super::Game;
 
   /**
-   * Tests the initialise_game_state function with an invalid game configuration.
+   * Tests the game construction with an invalid game configuration.
    */
   #[test]
   fn invalid_game_initialisation() {
@@ -692,7 +729,7 @@ mod game_tests {
 
     let mut game = Game::new(game_config);
 
-    assert!(game.initialise_game_state().is_err());
+    assert!(game.get_game_state().game_state.state == State::Error);
   }
 
   /**
@@ -1372,496 +1409,6 @@ mod game_tests {
   }
 
   /**
-   * Tests the update_game_state with an error scenario, where a king is missing from the board, to check the game state is updated correctly to State::Error.
-   */
-  #[test]
-  fn error_game_state_scenario() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: true
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let mut current_board = game.board.copy_board();
-
-    game.update_game_state(&mut current_board);
-
-    assert!(game.game_state.state == State::Error);
-  }
-
-  /**
-   * Tests the update_game_state with an standard non-checking scenario to check the game state is updated correctly to State::Active.
-   */
-  #[test]
-  fn active_game_state_scenario() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("rook"), white: true, column: 0, row: 0},
-          PieceConfig {piece: String::from("king"), white: false, column: 7, row: 6}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: true
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let mut current_board = game.board.copy_board();
-
-    game.update_game_state(&mut current_board);
-
-    assert!(game.game_state.state == State::Active);
-  }
-
-  /**
-   * Tests the update_game_state with an checkmate scenario to check the game state is updated correctly to State::BlackWin when white has no remaining valid moves and the white king is in check.
-   */
-  #[test]
-  fn black_win_game_state_scenario() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("queen"), white: false, column: 2, row: 1},
-          PieceConfig {piece: String::from("king"), white: false, column: 2, row: 2}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: true
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let mut current_board = game.board.copy_board();
-
-    game.update_game_state(&mut current_board);
-
-    assert!(game.game_state.state == State::BlackWin);
-  }
-
-  /**
-   * Tests the update_game_state with an checkmate scenario to check the game state is updated correctly to State::WhiteWin when black has no remaining valid moves and the black king is in check.
-   */
-  #[test]
-  fn white_win_game_state_scenario() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("king"), white: false, column: 2, row: 0},
-          PieceConfig {piece: String::from("queen"), white: true, column: 2, row: 1},
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 2}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: false
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let mut current_board = game.board.copy_board();
-
-    game.update_game_state(&mut current_board);
-
-    assert!(game.game_state.state == State::WhiteWin);
-  }
-
-  /**
-   * Tests the update_game_state with an stalemate scenario to check the game state is updated correctly to State::Stalemate when the current player is not in check but has no valid moves.
-   */
-  #[test]
-  fn stalemate_win_game_state_scenario() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("queen"), white: true, column: 2, row: 6},
-          PieceConfig {piece: String::from("king"), white: false, column: 0, row: 7}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: false
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let mut current_board = game.board.copy_board();
-
-    game.update_game_state(&mut current_board);
-
-    assert!(game.game_state.state == State::Draw);
-  }
-
-  /**
-   * Tests the collect_positional_data function return data is correct for the provided board layout.
-   */
-  #[test]
-  fn positional_data_collection_valid() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("rook"), white: true, column: 2, row: 1},
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("king"), white: false, column: 0, row: 1}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: false
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let current_board = game.board.copy_board();
-
-    let positional_data = game.collect_positional_data(&current_board).unwrap();
-
-    assert!(positional_data.white_moves.len() == 2);
-    assert!(positional_data.black_moves.len() == 1);
-
-    for white_move_data in &positional_data.white_moves {
-      if white_move_data.position.row == 0 && white_move_data.position.column == 2 { // King
-        let expected_moves = vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}];
-        for position in &expected_moves {
-          assert!(white_move_data.valid_moves.contains(position));
-        }
-        for position in &expected_moves {
-          assert!(white_move_data.attacks.contains(position));
-        }
-        println!("{:?}", white_move_data.defends);
-        let expected_defends = vec![Position{row: 1, column: 2}];
-        for position in &expected_defends {
-          assert!(white_move_data.defends.contains(position));
-        }
-        assert!(white_move_data.pins.is_empty());
-        assert!(white_move_data.checking_path.is_none());
-      } else if white_move_data.position.row == 1 && white_move_data.position.column == 2 { // Rook
-        let expected_moves = vec![
-          Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
-          Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
-          Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
-        ];
-        for position in &expected_moves {
-          assert!(white_move_data.valid_moves.contains(position));
-        }
-        for position in &expected_moves {
-          assert!(white_move_data.attacks.contains(position));
-        }
-        let expected_defends = vec![Position{row: 0, column: 2}];
-        for position in &expected_defends {
-          assert!(white_move_data.defends.contains(position));
-        }
-        assert!(white_move_data.pins.is_empty());
-        assert!(white_move_data.checking_path.is_some());
-        let path = white_move_data.checking_path.as_ref().unwrap();
-        assert!(path.len() == 1);
-        assert!(path[0] == Position{row: 1, column: 1});
-      } else {
-        assert!(false) // Element doesn't match expected
-      }
-    }
-
-    let black_move_data = &positional_data.black_moves[0];
-    assert!(black_move_data.position == Position{row: 1, column: 0});
-    let expected_moves = vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}];
-    for position in &expected_moves {
-      assert!(black_move_data.valid_moves.contains(position));
-    }
-    for position in &expected_moves {
-      assert!(black_move_data.attacks.contains(position));
-    }
-    assert!(black_move_data.defends.is_empty());
-    assert!(black_move_data.pins.is_empty());
-    assert!(black_move_data.checking_path.is_none());
-  }
-
-  /**
-   * Tests the is_checked function captures a check scenario.
-   */
-  #[test]
-  fn check_scenario_captured() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("rook"), white: true, column: 2, row: 1},
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("king"), white: false, column: 0, row: 1}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: false
-    };
-  
-    let game = Game::new(game_config);
-
-    let positional_data = PositionalData {
-      white_moves: vec![
-        MoveData { // King
-          position: Position{row: 0, column: 2},
-          valid_moves: vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          attacks: vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          defends: vec![], pins: vec![], checking_path: None
-        },
-        MoveData { // Rook
-          position: Position{row: 1, column: 2},
-          valid_moves: vec![
-            Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
-            Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
-            Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
-          ], 
-          attacks: vec![
-            Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
-            Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
-            Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
-          ], 
-          defends: vec![Position{row: 0, column: 2}], pins: vec![], 
-          checking_path: Some(vec![Position{row: 1, column: 1}])
-        }
-      ],
-      black_moves: vec![
-        MoveData {
-          position: Position{row: 1, column: 0},
-          valid_moves: vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}], 
-          attacks: vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}], 
-          defends: vec![], pins: vec![], checking_path: None
-        }
-      ],
-      white_king_index: 0,
-      black_king_index: 0
-    };
-
-    assert!(game.is_checked(&positional_data));
-  }
-
-  /**
-   * Tests the collect_checked_valid_moves function returns the correct valid moves on white's turn.
-   */
-  #[test]
-  fn valid_move_collection_white() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("rook"), white: true, column: 1, row: 0},
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("king"), white: false, column: 0, row: 7}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: true
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let current_board = game.board.copy_board();
-
-    let positional_data = PositionalData {
-      white_moves: vec![
-        MoveData { // King
-          position: Position{row: 0, column: 2},
-          valid_moves: vec![Position{row: 1, column: 1}, Position{row: 1, column: 2}, Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          attacks: vec![Position{row: 1, column: 1}, Position{row: 1, column: 2}, Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          defends: vec![], pins: vec![], checking_path: None
-        },
-        MoveData { // Rook
-          position: Position{row: 0, column: 1},
-          valid_moves: vec![
-            Position{row: 0, column: 0}, Position{row: 1, column: 1}, Position{row: 2, column: 1}, Position{row: 3, column: 1},
-            Position{row: 4, column: 1}, Position{row: 5, column: 1}, Position{row: 6, column: 1}, Position{row: 7, column: 1}
-          ], 
-          attacks: vec![
-            Position{row: 0, column: 0}, Position{row: 1, column: 1}, Position{row: 2, column: 1}, Position{row: 3, column: 1},
-            Position{row: 4, column: 1}, Position{row: 5, column: 1}, Position{row: 6, column: 1}, Position{row: 7, column: 1}
-          ], 
-          defends: vec![Position{row: 0, column: 2}], pins: vec![], checking_path: None
-        }
-      ],
-      black_moves: vec![
-        MoveData {
-          position: Position{row: 7, column: 0},
-          valid_moves: vec![Position{row: 6, column: 0}], 
-          attacks: vec![Position{row: 6, column: 0}], 
-          defends: vec![], pins: vec![], checking_path: None
-        }
-      ],
-      white_king_index: 0,
-      black_king_index: 0
-    };
-
-    let valid_moves = game.collect_checked_valid_moves(&positional_data, &current_board);
-
-    assert!(valid_moves.len() == 2);
-
-    assert!(valid_moves.contains_key(&Position{row: 0, column: 2}));
-    assert!(valid_moves.contains_key(&Position{row: 0, column: 1}));
-
-    let king_moves = vec![Position{row: 1, column: 1}, Position{row: 1, column: 2}, Position{row: 1, column: 3}, Position{row: 0, column: 3}];
-    let king_move_list = valid_moves.get(&Position{row: 0, column: 2});
-    for position in &king_moves {
-      assert!(king_move_list.unwrap().contains(position))
-    }
-
-    let rook_moves = vec![
-      Position{row: 0, column: 0}, Position{row: 1, column: 1}, Position{row: 2, column: 1}, Position{row: 3, column: 1},
-      Position{row: 4, column: 1}, Position{row: 5, column: 1}, Position{row: 6, column: 1}, Position{row: 7, column: 1}
-    ];
-    let rook_move_list = valid_moves.get(&Position{row: 0, column: 1});
-    for position in &rook_moves {
-      assert!(rook_move_list.unwrap().contains(position))
-    }
-  }
-
-  /**
-   * Tests the collect_checked_valid_moves function returns the correct valid moves on black's turn.
-   */
-  #[test]
-  fn valid_move_collection_black() {
-    let game_config = GameConfig {
-      board: BoardConfig {
-        pieces: vec![
-          PieceConfig {piece: String::from("rook"), white: true, column: 1, row: 0},
-          PieceConfig {piece: String::from("king"), white: true, column: 2, row: 0},
-          PieceConfig {piece: String::from("king"), white: false, column: 0, row: 7}
-        ],
-        rows: 8,
-        columns: 8
-      },
-      white_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      black_castling: CastlingConfig {
-        long_castle: false,
-        short_castle: false
-      },
-      white_turn: false
-    };
-  
-    let mut game = Game::new(game_config);
-
-    let current_board = game.board.copy_board();
-
-    let positional_data = PositionalData {
-      white_moves: vec![
-        MoveData { // King
-          position: Position{row: 0, column: 2},
-          valid_moves: vec![Position{row: 1, column: 1}, Position{row: 1, column: 2}, Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          attacks: vec![Position{row: 1, column: 1}, Position{row: 1, column: 2}, Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
-          defends: vec![], pins: vec![], checking_path: None
-        },
-        MoveData { // Rook
-          position: Position{row: 0, column: 1},
-          valid_moves: vec![
-            Position{row: 0, column: 0}, Position{row: 1, column: 1}, Position{row: 2, column: 1}, Position{row: 3, column: 1},
-            Position{row: 4, column: 1}, Position{row: 5, column: 1}, Position{row: 6, column: 1}, Position{row: 7, column: 1}
-          ], 
-          attacks: vec![
-            Position{row: 0, column: 0}, Position{row: 1, column: 1}, Position{row: 2, column: 1}, Position{row: 3, column: 1},
-            Position{row: 4, column: 1}, Position{row: 5, column: 1}, Position{row: 6, column: 1}, Position{row: 7, column: 1}
-          ], 
-          defends: vec![Position{row: 0, column: 2}], pins: vec![], checking_path: None
-        }
-      ],
-      black_moves: vec![
-        MoveData {
-          position: Position{row: 7, column: 0},
-          valid_moves: vec![Position{row: 6, column: 0}], 
-          attacks: vec![Position{row: 6, column: 0}], 
-          defends: vec![], pins: vec![], checking_path: None
-        }
-      ],
-      white_king_index: 0,
-      black_king_index: 0
-    };
-
-    let valid_moves = game.collect_checked_valid_moves(&positional_data, &current_board);
-
-    assert!(valid_moves.len() == 1);
-
-    assert!(valid_moves.contains_key(&Position{row: 7, column: 0}));
-
-    let king_move_list = valid_moves.get(&Position{row: 7, column: 0});
-    assert!(king_move_list.unwrap()[0] == Position{row: 6, column: 0});
-  }
-
-  /**
    * Tests the validate_move_selection function correctly identifies the provided move is valid pawn promotion and returns true.
    */
   #[test]
@@ -1984,9 +1531,261 @@ mod game_tests {
 
 #[cfg(test)]
 mod util_tests {
-  use crate::{move_data::MoveData, pieces::piece::Piece, model::Position};
+  use crate::{game::PositionalData, model::{CastlingState, Position, State}, move_data::MoveData, pieces::piece::Piece};
 
   use std::collections::HashMap;
+
+  /**
+   * Tests the get_state_change with an error scenario, where a king is missing from the board, to check the game state is updated correctly to State::Error.
+   */
+  #[test]
+  fn error_state_change_scenario() {
+    let mut board: Vec<Vec<Option<Piece>>> = vec![
+      vec![None, None, Some(Piece::King(true)), None, None, None, None, None],
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None]
+    ];
+
+    let state_change = super::get_state_change(
+      &mut board, 
+      true, 
+      &CastlingState { long_castle: false, short_castle: false },
+      &None
+    );
+
+    assert!(state_change.state == State::Error);
+  }
+
+  /**
+   * Tests the get_state_change with an standard non-checking scenario to check the game state is updated correctly to State::Active.
+   */
+  #[test]
+  fn active_state_change_scenario() {
+
+    let mut board: Vec<Vec<Option<Piece>>> = vec![
+      vec![Some(Piece::Rook(true)), None, Some(Piece::King(true)), None, None, None, None, None],
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, Some(Piece::King(false))], 
+      vec![None, None, None, None, None, None, None, None]
+    ];
+    
+    let state_change = super::get_state_change(
+      &mut board, 
+      true, 
+      &CastlingState { long_castle: false, short_castle: false },
+      &None
+    );
+
+    assert!(state_change.state == State::Active);
+  }
+
+  /**
+   * Tests the get_state_change with an checkmate scenario to check the game state is updated correctly to State::BlackWin when white has no remaining valid moves and the white king is in check.
+   */
+  #[test]
+  fn black_win_game_state_scenario() {
+    let mut board: Vec<Vec<Option<Piece>>> = vec![
+      vec![None, None, Some(Piece::King(true)), None, None, None, None, None],
+      vec![None, None, Some(Piece::Queen(false)), None, None, None, None, None], 
+      vec![None, None, Some(Piece::King(false)), None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None]
+    ];
+
+    let state_change = super::get_state_change(
+      &mut board, 
+      true, 
+      &CastlingState { long_castle: false, short_castle: false },
+      &None
+    );
+
+    assert!(state_change.state == State::BlackWin);
+  }
+
+  /**
+   * Tests the get_state_change with an checkmate scenario to check the game state is updated correctly to State::WhiteWin when black has no remaining valid moves and the black king is in check.
+   */
+  #[test]
+  fn white_win_game_state_scenario() {
+    let mut board: Vec<Vec<Option<Piece>>> = vec![
+      vec![None, None, Some(Piece::King(false)), None, None, None, None, None],
+      vec![None, None, Some(Piece::Queen(true)), None, None, None, None, None], 
+      vec![None, None, Some(Piece::King(true)), None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None]
+    ];
+
+    let state_change = super::get_state_change(
+      &mut board, 
+      false, 
+      &CastlingState { long_castle: false, short_castle: false },
+      &None
+    );
+
+    assert!(state_change.state == State::WhiteWin);
+  }
+
+  /**
+   * Tests the get_state_change with an stalemate scenario to check the game state is updated correctly to State::Stalemate when the current player is not in check but has no valid moves.
+   */
+  #[test]
+  fn stalemate_win_game_state_scenario() {
+    let mut board: Vec<Vec<Option<Piece>>> = vec![
+      vec![None, None, Some(Piece::King(true)), None, None, None, None, None],
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, Some(Piece::Queen(true)), None, None, None, None, None], 
+      vec![Some(Piece::King(false)), None, None, None, None, None, None, None]
+    ];
+
+    let state_change = super::get_state_change(
+      &mut board, 
+      false, 
+      &CastlingState { long_castle: false, short_castle: false },
+      &None
+    );
+
+    assert!(state_change.state == State::Draw);
+  }
+
+  /**
+   * Tests the collect_positional_data function return data is correct for the provided board layout.
+   */
+  #[test]
+  fn positional_data_collection_valid() {
+    let board: Vec<Vec<Option<Piece>>> = vec![
+      vec![None, None, Some(Piece::King(true)), None, None, None, None, None],
+      vec![Some(Piece::King(false)), None, Some(Piece::Rook(true)), None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None], 
+      vec![None, None, None, None, None, None, None, None]
+    ];
+
+    let positional_data = super::collect_positional_data(&board, false, &None).unwrap();
+
+    assert!(positional_data.white_moves.len() == 2);
+    assert!(positional_data.black_moves.len() == 1);
+
+    for white_move_data in &positional_data.white_moves {
+      if white_move_data.position.row == 0 && white_move_data.position.column == 2 { // King
+        let expected_moves = vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}];
+        for position in &expected_moves {
+          assert!(white_move_data.valid_moves.contains(position));
+        }
+        for position in &expected_moves {
+          assert!(white_move_data.attacks.contains(position));
+        }
+        println!("{:?}", white_move_data.defends);
+        let expected_defends = vec![Position{row: 1, column: 2}];
+        for position in &expected_defends {
+          assert!(white_move_data.defends.contains(position));
+        }
+        assert!(white_move_data.pins.is_empty());
+        assert!(white_move_data.checking_path.is_none());
+      } else if white_move_data.position.row == 1 && white_move_data.position.column == 2 { // Rook
+        let expected_moves = vec![
+          Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
+          Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
+          Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
+        ];
+        for position in &expected_moves {
+          assert!(white_move_data.valid_moves.contains(position));
+        }
+        for position in &expected_moves {
+          assert!(white_move_data.attacks.contains(position));
+        }
+        let expected_defends = vec![Position{row: 0, column: 2}];
+        for position in &expected_defends {
+          assert!(white_move_data.defends.contains(position));
+        }
+        assert!(white_move_data.pins.is_empty());
+        assert!(white_move_data.checking_path.is_some());
+        let path = white_move_data.checking_path.as_ref().unwrap();
+        assert!(path.len() == 1);
+        assert!(path[0] == Position{row: 1, column: 1});
+      } else {
+        assert!(false) // Element doesn't match expected
+      }
+    }
+
+    let black_move_data = &positional_data.black_moves[0];
+    assert!(black_move_data.position == Position{row: 1, column: 0});
+    let expected_moves = vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}];
+    for position in &expected_moves {
+      assert!(black_move_data.valid_moves.contains(position));
+    }
+    for position in &expected_moves {
+      assert!(black_move_data.attacks.contains(position));
+    }
+    assert!(black_move_data.defends.is_empty());
+    assert!(black_move_data.pins.is_empty());
+    assert!(black_move_data.checking_path.is_none());
+  }
+
+  /**
+   * Tests the is_checked function captures a check scenario.
+   */
+  #[test]
+  fn check_scenario_captured() {
+    let positional_data = PositionalData {
+      white_moves: vec![
+        MoveData { // King
+          position: Position{row: 0, column: 2},
+          valid_moves: vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
+          attacks: vec![Position{row: 1, column: 3}, Position{row: 0, column: 3}], 
+          defends: vec![], pins: vec![], checking_path: None
+        },
+        MoveData { // Rook
+          position: Position{row: 1, column: 2},
+          valid_moves: vec![
+            Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
+            Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
+            Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
+          ], 
+          attacks: vec![
+            Position{row: 1, column: 1}, Position{row: 1, column: 0}, Position{row: 1, column: 3}, Position{row: 1, column: 4},
+            Position{row: 1, column: 5}, Position{row: 1, column: 6}, Position{row: 1, column: 7}, Position{row: 2, column: 2},
+            Position{row: 3, column: 2}, Position{row: 4, column: 2}, Position{row: 5, column: 2}, Position{row: 6, column: 2}, Position{row: 7, column: 2},
+          ], 
+          defends: vec![Position{row: 0, column: 2}], pins: vec![], 
+          checking_path: Some(vec![Position{row: 1, column: 1}])
+        }
+      ],
+      black_moves: vec![
+        MoveData {
+          position: Position{row: 1, column: 0},
+          valid_moves: vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}], 
+          attacks: vec![Position{row: 0, column: 0}, Position{row: 2, column: 0}], 
+          defends: vec![], pins: vec![], checking_path: None
+        }
+      ],
+      white_king_index: 0,
+      black_king_index: 0
+    };
+
+    assert!(super::is_checked(false, &positional_data));
+  }
 
   /**
    * Tests the update_king_valid_moves function for a correct modification to the valid moves list for the king.

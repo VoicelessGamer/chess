@@ -7,73 +7,10 @@ use crate::{
   model::Position
 };
 
-#[derive(Clone)]
-pub struct LoggedMove {
-  piece_move: PieceMove,
-  white_move: bool,
-  pgn_notation: String
-}
-
-impl LoggedMove {
-  pub fn piece_move(&self) -> &PieceMove {
-    &self.piece_move
-  }
-
-  pub fn white_move(&self) -> bool {
-    self.white_move
-  }
-
-  pub fn pgn_notation(&self) -> &String {
-    &self.pgn_notation
-  }
-}
-
-/**
- * The 'moves' field is a vector of 2-element vectors. 
- * The first element is white's move, the second, black's
- */
-pub struct MoveLogger {
-  initial_board: Vec<Vec<Option<Piece>>>, // The state of the board at the beginning of the game
-  move_log: Vec<LoggedMove>
-}
-
-impl MoveLogger {
-
-  pub fn new(initial_board: Vec<Vec<Option<Piece>>>) -> Self {
-    Self {
-      initial_board,
-      move_log: vec![]
-    }
-  }
-
-  pub fn initial_board(&self) -> &Vec<Vec<Option<Piece>>> {
-    &self.initial_board
-  }
-
-  pub fn move_log(&self) -> &Vec<LoggedMove> {
-    &self.move_log
-  }
-
-  /**
-   * Adds a LoggedMove to the move_log vector.
-   * This function should be called after a move has been made and the game state is updated.
-   * Note: Should potentially change this to returning a Result for better error handling.
-   */
-  pub fn add_move(&mut self, white_move: bool, piece_move: PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> bool {
-    let pgn_notation = calculate_pgn(&piece_move, &board, &game_state);
-    if pgn_notation.is_none() {
-      return false;
-    }
-
-    self.move_log.push(LoggedMove{piece_move, white_move, pgn_notation: pgn_notation.unwrap()});
-    return true;
-  }
-}
-
 /**
  * Calculates the standard pgn notation for a given move.
  */
-fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> Option<String> {
+pub fn calculate_pgn(piece_move: &PieceMove, board: &Vec<Vec<Option<Piece>>>, game_state: &GameState) -> Option<String> {
   let piece = board[piece_move.end.row][piece_move.end.column].as_ref().unwrap();
 
   // Check for castling move which follow a separate marking structure
@@ -241,11 +178,6 @@ fn get_rank_mapping(row: usize) -> Option<char> {
 }
 
 // TODO: Fill out the test suite for move logger functions.
-
-#[cfg(test)]
-mod move_logger_tests {
-  // use super::MoveLogger;
-}
 
 #[cfg(test)]
 mod util_tests {

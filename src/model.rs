@@ -20,7 +20,7 @@ impl PartialEq for Position {
   }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PieceMove {
   pub start: Position,
   pub end: Position,

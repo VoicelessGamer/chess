@@ -1,4 +1,4 @@
-use chess::{game::Game, model::{PieceMove, Position, State}, config::{self, PieceConfig}, pieces::piece::Piece};
+use chess::{config::{self, PieceConfig}, game::Game, model::{GameStateResult, PieceMove, Position, State}, pieces::piece::Piece};
 
 /**
  * Tests a full game run through with the scholars mate checkmate result for white
@@ -27,9 +27,8 @@ fn game_state_checkmate_scholars_mate() {
   ];
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
+  let mut result: Result<GameStateResult, String> = Err("Test move list empty.".to_string());
 
   let mut iter = moves.iter();
   while let Some(piece_move) = iter.next() {
@@ -75,11 +74,8 @@ fn game_state_stalemate() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
-
-  result = game.process_move(PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 4, column: 2 }, promotion: None});
+  let result = game.process_move(PieceMove { start: Position{ row: 4, column: 7 }, end: Position{ row: 4, column: 2 }, promotion: None});
 
   assert!(result.is_ok());
 
@@ -121,11 +117,8 @@ fn game_state_error_no_kings() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_err());
-
-  result = game.process_move(PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None});
+  let result = game.process_move(PieceMove { start: Position{ row: 0, column: 1 }, end: Position{ row: 1, column: 1 }, promotion: None});
 
   assert!(result.is_err());
 }
@@ -159,11 +152,8 @@ fn queen_promotion() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
-
-  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) });
+  let result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("Q".to_string()) });
 
   assert!(result.is_ok());
 
@@ -207,11 +197,8 @@ fn rook_promotion() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
-
-  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("R".to_string()) });
+  let result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("R".to_string()) });
 
   assert!(result.is_ok());
 
@@ -255,11 +242,8 @@ fn knight_promotion() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
-
-  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("N".to_string()) });
+  let result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("N".to_string()) });
 
   assert!(result.is_ok());
 
@@ -303,11 +287,8 @@ fn bishop_promotion() {
   };
 
   let mut game = Game::new(game_config);
-  let mut result = game.initialise_game_state();
 
-  assert!(result.is_ok());
-
-  result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("B".to_string()) });
+  let result = game.process_move(PieceMove { start: Position{ row: 6, column: 2 }, end: Position{ row: 7, column: 2 }, promotion: Some("B".to_string()) });
 
   assert!(result.is_ok());
 

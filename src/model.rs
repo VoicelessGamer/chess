@@ -36,13 +36,13 @@ pub enum State {
   Error
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CastlingState {
   pub long_castle: bool, // Is long castling still available
   pub short_castle: bool // Is short castling still available
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PlayerState {
   pub in_check: bool, // Whether this player's king is in check (currently attacked by opponent)
   pub castling_state: CastlingState, // State of this player's castling options
@@ -50,7 +50,7 @@ pub struct PlayerState {
   pub last_move: Option<PieceMove>
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GameState {
   pub state: State, // Current state of play
   pub white_turn: bool, // True if it is currently white's turn
@@ -58,6 +58,7 @@ pub struct GameState {
   pub black_state: PlayerState, // The state of the black player
 }
 
+#[derive(Debug)]
 pub struct GameStateResult {
   pub board: Vec<Vec<Option<Piece>>>,
   pub game_state: GameState

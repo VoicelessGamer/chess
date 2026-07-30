@@ -33,7 +33,7 @@ impl Default for StateChangeResult {
 
 pub struct Game {
   board: Board,
-  pub game_state: GameState
+  game_state: GameState
 }
 
 struct PositionalData {
@@ -83,6 +83,13 @@ impl Game {
         }
       }
     }
+  }
+
+  /**
+   * Returns true if it is white's turn or false if it is black's turn.
+   */
+  pub fn is_white_turn(&self) -> bool {
+    self.game_state.white_turn
   }
 
   /**

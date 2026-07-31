@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::collections::HashMap;
 
+use crate::board::BoardError;
 use crate::{
   board::Board,
   config::*,
@@ -10,6 +11,38 @@ use crate::{
 };
 
 pub const VALID_PROMOTIONS: [&str; 4] = ["B", "N", "Q", "R"];
+
+#[derive(Debug)]
+pub enum MoveValidationError {
+  /// Attempt made to move a piece from an invalid starting position.
+  InvalidMoveFromPosition,
+  /// Attempt made to move a piece to an invalid ending position.
+  InvalidMoveToPosition,
+  /// A promotion piece has been supplied where none was expected.
+  InvalidPromotion,
+  /// A promotion piece was not supplied where one was expected.
+  MissingPromotion,
+  /// The promotion piece supplied is unknown and cannot be handled.
+  InvalidPromotionPiece
+}
+
+#[derive(Debug)]
+pub enum GameError {
+  /// Current state of the game is not active. Provides the current state.
+  InactiveGameState(State),
+  /// A provided piece move request failed validation.
+  InvalidMove(MoveValidationError),
+  /// An internal error occurred with the game logic.
+  InternalError(String)
+}
+
+impl From<BoardError> for GameError {
+  fn from(value: BoardError) -> Self {
+    match value {
+      BoardError::MissingPiece => GameError::InvalidMove(MoveValidationError::InvalidMoveFromPosition),
+    }
+  }
+}
 
 struct StateChangeResult {
   pub state: State,
@@ -93,6 +126,13 @@ impl Game {
   }
 
   /**
+   * Returns a reference to the state field inside the game state. 
+   */
+  pub fn state(&self) -> &State {
+    &self.game_state.state
+  }
+
+  /**
    * Returns the current game state
    */
   pub fn get_game_state(&mut self) -> GameStateResult {
@@ -102,18 +142,14 @@ impl Game {
   /**
    * Given a piece move, validates the move, updates the board and the game's state to reflect the changes
    */
-  pub fn process_move(&mut self, piece_move: PieceMove) -> Result<GameStateResult, String> {
-    // self.game_state.state = State::Draw;
+  pub fn process_move(&mut self, piece_move: PieceMove) -> Result<GameStateResult, GameError> {
     if self.game_state.state != State::Active {
-      return Err(format!("Game state is {:?}. Cannot perform any further actions.", self.game_state.state));
+      return Err(GameError::InactiveGameState(self.game_state.state.clone()));
     } 
 
     let mut current_board = self.board.copy_board();
 
-
-    if !self.validate_move(&piece_move) {
-      return Err("Selected move validation failed.".to_string());
-    }
+    self.validate_move(&piece_move).map_err(|err| GameError::InvalidMove(err))?;
 
     // Check move to update the castling options, if needed
     self.update_castling_options(&piece_move, &current_board);
@@ -130,20 +166,12 @@ impl Game {
     };
 
     // The move is valid, make the move on the board and update the players with the current board state
-    let move_result = self.board.move_piece(&piece_move.start, &piece_move.end);
-    if move_result.is_err() {
-      return Err(move_result.unwrap_err().to_string());
-    }
-    current_board = move_result.unwrap();
+    current_board = self.board.move_piece(&piece_move.start, &piece_move.end).map_err(|err| GameError::from(err))?;
 
     // If this was a castling move then move the Rook piece as well
     if castle_move.is_some() {
       let c_move = castle_move.unwrap();
-      let move_result = self.board.move_piece(&c_move.start, &c_move.end);
-      if move_result.is_err() {
-        return Err(move_result.unwrap_err().to_string());
-      }
-      current_board = move_result.unwrap();
+      current_board = self.board.move_piece(&c_move.start, &c_move.end).map_err(|err| GameError::from(err))?;
     } else if en_passant_move.is_some() {
       // If this was an en passant move then remove the taken piece
       let ep_move = en_passant_move.unwrap();
@@ -155,7 +183,7 @@ impl Game {
         current_board = self.board.set_position(&piece_move.end, promoted_piece);
       } else {
         self.game_state.state = State::Error;
-        return Err("Missing promotion choice.".to_string());
+        return Err(GameError::InternalError("Pawn moved to last rank without a supplied promotion piece. Initial move validation failed.".to_string()));
       }
     }
 
@@ -191,8 +219,7 @@ impl Game {
    * Checks the provided piece movement is valid based on previously calculated valid options for the current active player.
    * Returns true if the movement is valid.
    */
-  fn validate_move(&self, piece_move: &PieceMove) -> bool {
-
+  fn validate_move(&self, piece_move: &PieceMove) -> Result<(), MoveValidationError> {
     // Check move is valid using the list of valid moves calculated on the previous turn
     let valid_moves = match self.game_state.white_turn {
       true => &self.game_state.white_state.valid_moves,
@@ -202,11 +229,11 @@ impl Game {
     let valid_positions_result = valid_moves.get(&piece_move.start);
 
     if valid_positions_result.is_none() {
-      return false;
+      return Err(MoveValidationError::InvalidMoveFromPosition);
     }
 
     if !valid_positions_result.unwrap().contains(&piece_move.end) {
-      return false;
+      return Err(MoveValidationError::InvalidMoveToPosition);
     }
 
     // Validate promotion move
@@ -215,13 +242,22 @@ impl Game {
         // Check if the piece is on the furthest or nearest rank based on piece colour
         if (self.game_state.white_turn && piece_move.end.row == 7) || (!self.game_state.white_turn && piece_move.end.row == 0) {
           // Promotion not supplied when it should have been or provided promotion is invalid
-          return piece_move.promotion.is_some() && VALID_PROMOTIONS.contains(&piece_move.promotion.as_ref().unwrap().as_str());
+          if piece_move.promotion.is_none() {
+            return Err(MoveValidationError::MissingPromotion)
+          }
+          if !VALID_PROMOTIONS.contains(&piece_move.promotion.as_ref().unwrap().as_str()) {
+            return Err(MoveValidationError::InvalidPromotionPiece);
+          }
+          return Ok(());      
         }
-
-        return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
       },
-      _ => return piece_move.promotion.is_none() // Returns false if a promotion has been provided when it's not a promotion move
+      _ => {}
+    };
+
+    if piece_move.promotion.is_some() {
+      return Err(MoveValidationError::InvalidPromotion);
     }
+    return Ok(());
   }
 
   /**
@@ -706,7 +742,7 @@ fn has_sufficient_material(moves: &Vec<MoveData>, board: &Vec<Vec<Option<Piece>>
 mod game_tests {
   use std::collections::HashMap;
 
-  use crate::{config::{BoardConfig, CastlingConfig, GameConfig, PieceConfig}, game::State, model::{PieceMove, Position}, pieces::piece::Piece};
+  use crate::{config::{BoardConfig, CastlingConfig, GameConfig, PieceConfig}, game::{MoveValidationError, State}, model::{PieceMove, Position}, pieces::piece::Piece};
 
   use super::Game;
 
@@ -1048,7 +1084,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the validate_move function returns true when providing a possible move for white.
+   * Tests the validate_move function returns an ok result when providing a possible move for white.
    */
   #[test]
   fn white_valid_move_validation() {
@@ -1082,11 +1118,11 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 5, column: 2}, end: Position {row: 6, column: 2}, promotion: None};
 
-    assert!(game.validate_move(&piece_move));
+    assert!(game.validate_move(&piece_move).is_ok());
   }
 
   /**
-   * Tests the validate_move function returns true when providing a possible move for black.
+   * Tests the validate_move function returns an ok result when providing a possible move for black.
    */
   #[test]
   fn black_valid_move_validation() {
@@ -1120,11 +1156,11 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 7, column: 0}, end: Position {row: 6, column: 0}, promotion: None};
 
-    assert!(game.validate_move(&piece_move));
+    assert!(game.validate_move(&piece_move).is_ok());
   }
 
   /**
-   * Tests the validate_move function returns true when providing a move for a position that doesn't contain a piece.
+   * Tests the validate_move function returns an ok result when providing a move for a position that doesn't contain a piece.
    */
   #[test]
   fn invalid_start_position_move_validation() {
@@ -1158,11 +1194,11 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 4, column: 4}, end: Position {row: 5, column: 1}, promotion: None};
 
-    assert!(!game.validate_move(&piece_move));
+    assert!(!game.validate_move(&piece_move).is_ok());
   }
 
   /**
-   * Tests the validate_move function returns true when providing an impossible move for a valid piece.
+   * Tests the validate_move function returns an error when providing an impossible move for a valid piece.
    */
   #[test]
   fn invalid_end_position_move_validation() {
@@ -1196,7 +1232,8 @@ mod game_tests {
 
     let piece_move = PieceMove{start: Position {row: 5, column: 2}, end: Position {row: 6, column: 1}, promotion: None};
 
-    assert!(!game.validate_move(&piece_move));
+    let result = game.validate_move(&piece_move);
+    assert!(matches!(result, Err(MoveValidationError::InvalidMoveToPosition)))
   }
 
   /**
@@ -1416,7 +1453,7 @@ mod game_tests {
   }
 
   /**
-   * Tests the validate_move_selection function correctly identifies the provided move is valid pawn promotion and returns true.
+   * Tests the validate_move function correctly identifies the provided move is valid pawn promotion and returns an ok result.
    */
   #[test]
   fn valid_promotion_move_selection() {
@@ -1452,11 +1489,11 @@ mod game_tests {
       &PieceMove {start: Position{row: 6, column: 0}, end: Position{row: 7, column: 0}, promotion: Some("Q".to_string())}
     );
 
-    assert!(move_result);
+    assert!(move_result.is_ok());
   }
 
   /**
-   * Tests the validate_move_selection function with a promotion provided on a pawn move that doesn't reach the required rank. Should return false.
+   * Tests the validate_move function with a promotion provided on a pawn move that doesn't reach the required rank. Should return an error.
    */
   #[test]
   fn invalid_promotion_move_selection() {
@@ -1492,11 +1529,11 @@ mod game_tests {
       &PieceMove {start: Position{row: 5, column: 0}, end: Position{row: 6, column: 0}, promotion: Some("Q".to_string())}
     );
 
-    assert!(!move_result);
+    assert!(matches!(move_result, Err(MoveValidationError::InvalidPromotion)));
   }
 
   /**
-   * Tests the validate_move_selection function with a promotion provided on a non-pawn move. Should return false.
+   * Tests the validate_move function with a promotion provided on a non-pawn move. Should return an error.
    */
   #[test]
   fn invalid_piece_promotion_move_selection() {
@@ -1532,8 +1569,50 @@ mod game_tests {
       &PieceMove {start: Position{row: 6, column: 0}, end: Position{row: 7, column: 0}, promotion: Some("Q".to_string())}
     );
 
-    assert!(!move_result);
+    assert!(matches!(move_result, Err(MoveValidationError::InvalidPromotion)));
   }
+
+  
+  /**
+   * Tests the validate_move function with a promotion provided on a pawn move with an unexpected promotion piece. Should return an error.
+   */
+  #[test]
+  fn invalid_promotion_piece() {
+    let game_config = GameConfig {
+      board: BoardConfig {
+        pieces: vec![
+          PieceConfig {piece: String::from("king"), white: true, column: 4, row: 0},
+          PieceConfig {piece: String::from("pawn"), white: true, column: 0, row: 6},
+          PieceConfig {piece: String::from("king"), white: false, column: 4, row: 7}
+        ],
+        rows: 8,
+        columns: 8
+      },
+      white_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      black_castling: CastlingConfig {
+        long_castle: true,
+        short_castle: true
+      },
+      white_turn: true
+    };
+
+    let mut game = Game::new(game_config);
+
+    let mut white_moves = HashMap::new();
+    white_moves.insert(Position{row: 6, column: 0}, vec![Position{row: 7, column: 0}]);
+
+    game.game_state.white_state.valid_moves = white_moves;
+
+    let move_result = game.validate_move(
+      &PieceMove {start: Position{row: 6, column: 0}, end: Position{row: 7, column: 0}, promotion: Some("J".to_string())}
+    );
+
+    assert!(matches!(move_result, Err(MoveValidationError::InvalidPromotionPiece)));
+  }
+
 }
 
 #[cfg(test)]

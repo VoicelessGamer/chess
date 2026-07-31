@@ -2,6 +2,12 @@ use crate::pieces::piece::Piece;
 use crate::config::*;
 use crate::model::Position;
 
+#[derive(Debug)]
+pub enum BoardError {
+  /// Attempting to move a piece from a board position that is empty.
+  MissingPiece
+}
+
 #[derive(Clone)]
 pub struct Board {
   board: Vec<Vec<Option<Piece>>>
@@ -36,9 +42,9 @@ impl Board {
   /**
    * Function call to place a given piece at a given position
    */
-  pub fn move_piece(&mut self, current_position: &Position, new_position: &Position) -> Result<Vec<Vec<Option<Piece>>>, &'static str> {
+  pub fn move_piece(&mut self, current_position: &Position, new_position: &Position) -> Result<Vec<Vec<Option<Piece>>>, BoardError> {
     if self.board[current_position.row][current_position.column].is_none() {
-      return Err("No piece in the provided current position. No changes made.");
+      return Err(BoardError::MissingPiece);
     }
 
     let chess_piece = self.board[current_position.row][current_position.column].take();
@@ -65,7 +71,7 @@ impl Board {
 
 #[cfg(test)]
 mod board_tests {
-  use crate::{config::{BoardConfig, PieceConfig}, model::Position, pieces::piece::Piece};
+  use crate::{board::BoardError, config::{BoardConfig, PieceConfig}, model::Position, pieces::piece::Piece};
 
   use super::Board;
 
@@ -125,7 +131,7 @@ mod board_tests {
     assert!(current_board[7][7].is_none());
 
     let move_result = board.move_piece(&Position {row: 7, column: 7}, &Position {row: 7, column: 6});
-    assert!(move_result.is_err());
+    assert!(matches!(move_result, Err(BoardError::MissingPiece)));
   }
 
   /**

@@ -1,4 +1,4 @@
-use chess::{config::{self, PieceConfig}, game::Game, model::{GameStateResult, PieceMove, Position, State}, pieces::piece::Piece};
+use chess::{config::{self, PieceConfig}, game::{Game, GameError}, model::{GameStateResult, PieceMove, Position, State}, pieces::piece::Piece};
 
 /**
  * Tests a full game run through with the scholars mate checkmate result for white
@@ -28,7 +28,7 @@ fn game_state_checkmate_scholars_mate() {
 
   let mut game = Game::new(game_config);
 
-  let mut result: Result<GameStateResult, String> = Err("Test move list empty.".to_string());
+  let mut result: Result<GameStateResult, GameError> = Err(GameError::InternalError("Test move list empty.".to_string()));
 
   let mut iter = moves.iter();
   while let Some(piece_move) = iter.next() {
